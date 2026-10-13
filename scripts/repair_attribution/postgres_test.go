@@ -29,10 +29,10 @@ func TestPostgresLockedRepairReadsBothTablesAndIsIdempotent(t *testing.T) {
 		p := plan{ID: 1, Author: 2, Group: 3, URL: "https://example.test", Expiry: "2020-01-01T00:00:00Z", Before: textFields{"raw", "bad", "坏"}, After: textFields{"signature", "good", "好"}}
 		require.NoError(t, tx.Exec("INSERT INTO raw_items VALUES(1,2,?,?)", p.URL, p.Before.Content).Error)
 		require.NoError(t, tx.Exec("INSERT INTO processed_items VALUES(1,3,3,?,?,?,0)", p.Expiry, p.Before.Summary, p.Before.SummaryZh).Error)
-		changed, err := repairText(tx, p, false)
+		changed, err := repairText(tx, p, false, false, nil)
 		require.NoError(t, err)
 		require.False(t, changed)
-		changed, err = repairText(tx, p, true)
+		changed, err = repairText(tx, p, true, false, nil)
 		require.NoError(t, err)
 		require.True(t, changed)
 		var got struct {
@@ -46,9 +46,25 @@ func TestPostgresLockedRepairReadsBothTablesAndIsIdempotent(t *testing.T) {
 		require.Equal(t, 3, got.Status)
 		require.Equal(t, p.Group, got.GroupID)
 		require.Equal(t, p.Expiry, got.ExpireTime)
-		changed, err = repairText(tx, p, true)
+		changed, err = repairText(tx, p, true, false, nil)
 		require.NoError(t, err)
 		require.False(t, changed)
+		require.NoError(t, tx.Exec("CREATE TEMP TABLE agents(agent_id bigint PRIMARY KEY,email text) ON COMMIT DROP").Error)
+		require.NoError(t, tx.Exec("INSERT INTO agents VALUES(2,'source@pgc.eigenflux.one')").Error)
+		p.Before = p.After
+		p.After.Summary = "reviewed live summary"
+		p.After.SummaryZh = "核实后的摘要"
+		p.Expiry = ""
+		require.NoError(t, tx.Exec("UPDATE processed_items SET expire_time='' WHERE item_id=1").Error)
+		changed, err = repairText(tx, p, true, true, []string{"@pgc.eigenflux.one"})
+		require.NoError(t, err)
+		require.True(t, changed)
+		changed, err = repairText(tx, p, true, true, []string{"@pgc.eigenflux.one"})
+		require.NoError(t, err)
+		require.False(t, changed)
+		require.NoError(t, tx.Exec("UPDATE agents SET email='person@example.com'").Error)
+		_, err = repairText(tx, p, true, true, []string{"@pgc.eigenflux.one"})
+		require.ErrorContains(t, err, "authoritative PGC")
 		return rollback
 	})
 	require.ErrorIs(t, err, rollback)

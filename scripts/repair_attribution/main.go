@@ -1,4 +1,4 @@
-// A bounded, idempotent repair for an already completed, expired broadcast.
+// A bounded, idempotent text repair for an already completed broadcast.
 // Default is a locked dry run. Apply changes only the three approved text fields
 // and schedules the existing completed-item projection repair, never publication.
 package main
@@ -37,13 +37,20 @@ type plan struct {
 	After  textFields `json:"after"`
 }
 
-func validate(p plan, r itemdal.RawItem, s itemdal.ProcessedItem, now time.Time) (bool, error) {
+func validate(p plan, r itemdal.RawItem, s itemdal.ProcessedItem, now time.Time, summaryOnly bool) (bool, error) {
 	if p.ID <= 0 || p.Author <= 0 || p.Group <= 0 || p.After.Content == "" || p.After.Summary == "" || p.After.SummaryZh == "" {
 		return false, errors.New("incomplete repair plan")
 	}
 	expiry := featureindex.ParseExpiry(s.ExpireTime)
-	if r.ItemID != p.ID || s.ItemID != p.ID || r.AuthorAgentID != p.Author || r.RawURL != p.URL || s.GroupID != p.Group || s.Status != itemdal.StatusCompleted || s.ExpireTime != p.Expiry || expiry == nil || !expiry.Before(now) {
+	if r.ItemID != p.ID || s.ItemID != p.ID || r.AuthorAgentID != p.Author || r.RawURL != p.URL || s.GroupID != p.Group || s.Status != itemdal.StatusCompleted || s.ExpireTime != p.Expiry {
 		return false, errors.New("identity/lifecycle precondition changed")
+	}
+	if summaryOnly {
+		if p.Before.Content != p.After.Content {
+			return false, errors.New("summary-only repair cannot change source content")
+		}
+	} else if expiry == nil || !expiry.Before(now) {
+		return false, errors.New("body repair requires an expired item")
 	}
 	actual := textFields{r.RawContent, s.Summary, s.SummaryZh}
 	if actual == p.After {
@@ -57,6 +64,7 @@ func validate(p plan, r itemdal.RawItem, s itemdal.ProcessedItem, now time.Time)
 func main() {
 	path := flag.String("plan", "", "reviewed JSON repair plan")
 	apply := flag.Bool("apply", false, "apply exact text repair and refresh completed-item projections")
+	summaryOnly := flag.Bool("pgc-summary-only", false, "allow a reviewed PGC summary repair without changing source content or lifecycle")
 	flag.Parse()
 	b, err := os.ReadFile(*path)
 	check(err)
@@ -75,7 +83,7 @@ func main() {
 	changed := false
 	check(db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		changed, err = repairText(tx, p, *apply)
+		changed, err = repairText(tx, p, *apply, *summaryOnly, cfg.PGCEmailSuffixes)
 		return err
 	}))
 	if *apply {
@@ -90,7 +98,7 @@ func main() {
 }
 
 // Each table read starts from the transaction so model/table state cannot leak.
-func repairText(tx *gorm.DB, p plan, apply bool) (bool, error) {
+func repairText(tx *gorm.DB, p plan, apply, summaryOnly bool, suffixes []string) (bool, error) {
 	var r itemdal.RawItem
 	var s itemdal.ProcessedItem
 	readRecord := func(record any) error {
@@ -106,15 +114,26 @@ func repairText(tx *gorm.DB, p plan, apply bool) (bool, error) {
 	if err := readRecord(&s); err != nil {
 		return false, err
 	}
-	need, e := validate(p, r, s, time.Now())
+	if summaryOnly {
+		var publisher struct{ Email string }
+		if err := tx.Table("agents").Select("email").Where("agent_id = ?", r.AuthorAgentID).Take(&publisher).Error; err != nil {
+			return false, err
+		}
+		if !config.EmailMatchesAnySuffix(publisher.Email, suffixes) {
+			return false, errors.New("summary-only repair requires an authoritative PGC publisher")
+		}
+	}
+	need, e := validate(p, r, s, time.Now(), summaryOnly)
 	if e != nil {
 		return false, e
 	}
 	if !apply || !need {
 		return false, nil
 	}
-	if e = tx.Model(&r).Update("raw_content", p.After.Content).Error; e != nil {
-		return false, e
+	if !summaryOnly {
+		if e = tx.Model(&r).Update("raw_content", p.After.Content).Error; e != nil {
+			return false, e
+		}
 	}
 	if e = tx.Model(&s).Updates(map[string]any{"summary": p.After.Summary, "summary_zh": p.After.SummaryZh, "updated_at": time.Now().UnixMilli()}).Error; e != nil {
 		return false, e
