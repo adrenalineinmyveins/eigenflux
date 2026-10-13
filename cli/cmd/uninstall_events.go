@@ -25,21 +25,24 @@ var regexpUninstallAttempt = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
 // No credentials or free-text reasons are carried in a finalization receipt.
 type uninstallObservation struct {
-	AttemptID      string              `json:"attempt_id"`
-	Executable     string              `json:"executable"`
-	CleanupFiles   []string            `json:"cleanup_files,omitempty"`
-	FileDigests    map[string]string   `json:"file_digests,omitempty"`
-	Homes          []installationHome  `json:"homes"`
-	Scopes         []maintenance.Scope `json:"scopes,omitempty"`
-	Started        time.Time           `json:"started"`
-	Source         string              `json:"source"`
-	ReasonCategory string              `json:"reason_category"`
-	Version        string              `json:"version"`
-	Pending        bool                `json:"pending"`
-	Partial        bool                `json:"partial"`
-	Mutated        bool                `json:"mutated"`
-	Result         string              `json:"result,omitempty"`
-	LocalReason    string              `json:"-"`
+	RemovalScope          string              `json:"removal_scope,omitempty"`
+	RetainedPaths         []string            `json:"retained_paths,omitempty"`
+	RemainingRegistration *installationRecord `json:"remaining_registration,omitempty"`
+	AttemptID             string              `json:"attempt_id"`
+	Executable            string              `json:"executable"`
+	CleanupFiles          []string            `json:"cleanup_files,omitempty"`
+	FileDigests           map[string]string   `json:"file_digests,omitempty"`
+	Homes                 []installationHome  `json:"homes"`
+	Scopes                []maintenance.Scope `json:"scopes,omitempty"`
+	Started               time.Time           `json:"started"`
+	Source                string              `json:"source"`
+	ReasonCategory        string              `json:"reason_category"`
+	Version               string              `json:"version"`
+	Pending               bool                `json:"pending"`
+	Partial               bool                `json:"partial"`
+	Mutated               bool                `json:"mutated"`
+	Result                string              `json:"result,omitempty"`
+	LocalReason           string              `json:"-"`
 }
 
 func newUninstallObservation(bin, source, category, reason string) *uninstallObservation {

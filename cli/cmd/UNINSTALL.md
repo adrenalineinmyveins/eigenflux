@@ -6,6 +6,7 @@ Update this file whenever the uninstall contract changes.
   owned Skills/scripts, local data cleanup, optional shared notification removal, binary removal.
 - `uninstall_events.go`: account-pinned observations, receipts, local audit,
   bounded upload, Windows original-file verification and finalization.
+- `uninstall_scope.go`: current Home selection and shared resource ownership.
 - `uninstall_purge.go`: validated Home business-data cleanup, retaining live locks.
 - `internal/uninstallscript`: embedded wrappers; keep byte-identical to `static/`.
 - `internal/desktopnotify/uninstall_*`: owned per-user notification cleanup.
@@ -15,7 +16,11 @@ its SHA-256 in the installation record. Registered scripts are removed even when
 Preview is immutable. `--begin` records intent without removal; the Skill carries
 its `--attempt` through native host cleanup and final apply. `--record-result`
 records blocked/failed native cleanup. Apply still requires native cleanup
-confirmation, shared-installation scope, and stopped watchers.
+confirmation, explicit current/all scope, and stopped watchers in that scope.
+The Skill asks whether other Agents still need EigenFlux before cleanup. Current
+scope keeps the CLI, other Homes, shared Skills and notification integration,
+then removes only current Home registrations. All scope removes the installation.
+Scope is pinned in the begin receipt; changing it requires a fresh attempt.
 
 The event is `maintenance_attempt`, `phase=uninstall`, `trigger=manual`.
 Results: `started`, `removed`, `partial`, `failed`, `blocked`. Source distinguishes

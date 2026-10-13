@@ -54,6 +54,14 @@ func (o *uninstallObservation) purgeHomes() error {
 		}
 		seen[entry.Home] = true
 		protected := map[string]bool{o.Executable + ".install.lock": true, o.Executable + ".update.lock": true}
+		for _, path := range o.RetainedPaths {
+			protected[path] = true
+		}
+		if o.RemovalScope == "current" {
+			for _, suffix := range []string{"", ".previous", ".update.json", ".install.json", ".uninstall.sh", ".uninstall.ps1"} {
+				protected[o.Executable+suffix] = true
+			}
+		}
 		watchDir := filepath.Join(entry.Home, "watch")
 		if info, err := os.Lstat(watchDir); err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 			files, err := os.ReadDir(watchDir)
@@ -139,6 +147,13 @@ func (o *uninstallObservation) finishAndPurge(result, code string) error {
 	var cleanupErr error
 	if result == "removed" {
 		cleanupErr = o.purgeHomes()
+		if cleanupErr == nil && o.RemovalScope == "current" {
+			if o.RemainingRegistration == nil {
+				cleanupErr = fmt.Errorf("remaining installation registration required")
+			} else {
+				cleanupErr = saveMaintenance(o.Executable+".install.json", o.RemainingRegistration)
+			}
+		}
 		if cleanupErr != nil {
 			result = "partial"
 			code = "local_data_cleanup_failed"

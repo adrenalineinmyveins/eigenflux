@@ -1,6 +1,8 @@
 # CLI installation removal
 
-`eigenflux uninstall` previews the registered installation without writing files or contacting the network. `--begin` records an attempt before native cleanup; resume it through `--attempt`. Apply requires `--host-cleanup-confirmed`. Multiple registered Homes require `--all-homes`.
+`eigenflux uninstall` previews the registered installation without writing files or contacting the network. `--begin` records an attempt before native cleanup; resume it through `--attempt`. Before cleanup, the uninstall Skill asks whether other Agents still need EigenFlux. Explicit owner scope is reused. `--scope current` removes only the invoking registered Home, while `--scope all` removes the full installation. Begin/apply require an explicit scope; `--all-homes` remains an alias for complete removal. Apply requires `--host-cleanup-confirmed`.
+
+Current-Agent removal keeps the shared executable, wrappers, notification integration, remaining Homes and shared Skills. It removes the current Home registrations atomically under the installation lock. Only current Home watchers must stop. Remaining Homes and their Skills paths are protected even when nested within the removed Home; current removal also retains an executable located inside that Home. Windows current-Agent removal completes directly without original-file finalization. Native cleanup removes only the current Home's triggers and plugin bindings; shared plugin packages remain.
 
 Use host-native tools to stop and remove EigenFlux triggers, plugins, and their configuration. Retain unrelated host settings and third-party content. The CLI checks installation, update, and watch locks before removal. It rejects linked or non-canonical Agent Home roots before deleting data.
 
