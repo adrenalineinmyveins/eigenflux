@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -75,6 +75,8 @@ jobs:
         run: go test ./internal/auth -count=1
       - name: Test runtime identity persistence and automatic reporting
         run: go test -count=1 ./internal/profilestate ./internal/client ./internal/config ./cmd
+      - name: Test uninstall telemetry and owned installation cleanup
+        run: go test -count=1 ./internal/maintenance ./internal/watch ./internal/skills ./internal/desktopnotify ./internal/uninstallscript
       - name: Test signed Skills installation and upgrade compatibility
         if: runner.os == 'Linux'
         run: go test ./tests
@@ -110,5 +112,5 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force ../build | Out-Null
           go build -o ../build/eigenflux.exe .
-      - name: Test Windows installer downloads on PowerShell 5.1 and 7
-        run: python -m unittest discover -s tests/cli_release -p 'test_windows_download.py'
+      - name: Test Windows installer downloads and existing installation registration
+        run: python -m unittest discover -s tests/cli_release -p 'test_windows_*.py'
