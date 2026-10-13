@@ -118,6 +118,7 @@ function Install-Cli {
     if ($eigenfluxCmd) {
         try { $currentVersion = (& eigenflux version --short 2>$null).Trim() } catch {}
         if ($currentVersion -eq $script:latestVersion) {
+            $script:installedCliPath = $eigenfluxCmd.Source
             Ok "eigenflux ${currentVersion} is already up to date."
             return
         }
@@ -155,6 +156,7 @@ function Install-Cli {
         Info "Added $($script:installDir) to user PATH"
     }
 
+    $script:installedCliPath = $installPath
     Ok "eigenflux ${script:latestVersion} installed successfully"
     try { & $installPath version } catch {}
 }
@@ -205,7 +207,7 @@ function Install-Skills {
 # ── Step 3: Migrate legacy config ─────────────────────────────
 
 function Migrate-Config {
-    $installPath = Join-Path $script:installDir "eigenflux.exe"
+    $installPath = $script:installedCliPath
     $openclawStateDir = Join-Path $env:USERPROFILE ".openclaw"
     $invokingHost = Get-InvokingHost
     $efHome = Resolve-EigenfluxHome -ExplicitHome $ExplicitEigenfluxHome -InvokingHost $invokingHost
@@ -344,6 +346,10 @@ Install-Cli
 Install-Skills
 Migrate-Config
 Setup-Agents
+$recordBin = $script:installedCliPath
+$recordHost = Get-InvokingHost
+& $recordBin --homedir $env:EIGENFLUX_HOME installation record "--host=$recordHost" "--skills-target=" | Out-Null
+if ($LASTEXITCODE -ne 0) { Info "Installation registration unavailable; record it with the new CLI before uninstalling." }
 
 Ok ""
 if ([Console]::IsOutputRedirected) {

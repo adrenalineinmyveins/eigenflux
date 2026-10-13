@@ -184,11 +184,39 @@ Plugin-owned loops are excluded before the prompt state is touched because the
 three official adapters already run their own refresh cycle and intentionally
 discard CLI stderr.
 
+### Refresh funnel observations
+
+`POST /api/v1/agents/me/card/refresh-events` and its Agent V2 counterpart
+accept bounded lifecycle observations from an authenticated Agent. The gateway
+logs `agent_profile_refresh_funnel` with `agent_id`, `stage`, `run_id`,
+`poll_id`, `cause`, and `failure_code`. Unknown properties, invalid IDs,
+arbitrary text, and excessive requests are rejected.
+
+CLI Feed polling emits `poll_started` and `poll_succeeded` or `poll_failed`
+under one random `poll_id`. Delivered profile reminders and `refresh-task`
+emit `refresh_dispatched` under a random `run_id`. The account sidecar retains
+that ID for subsequent patch/refresh-complete requests using
+`X-EF-Profile-Refresh-Run`. Feed reminders carry their originating `poll_id`
+and `cause=feed_poll`; task dispatches use `host_schedule` or `manual`.
+Plugin-owned loops dispatch through `refresh-task`, independently of Feed.
+
+Command failures emit `refresh_attempt_failed`, with bounded `version_conflict`,
+`api_error`, or `client_error`. An attempt failure does not mean the Agent
+abandoned the run: retries may succeed under the same `run_id`. Successful
+outcomes remain `changed` and `unchanged` in `agent_profile_refresh_run`;
+`stale` is retryable. Count distinct `run_id` when joining dispatches to
+outcomes. Missing terminal observations remain pending and do not prove failure.
+
+Observations use a one-second timeout per POST and existing credentials without
+login or refresh, and do not change command output/results. There is no offline
+replay, so transport outages can leave incomplete funnels. Older CLI outcomes
+have an empty `run_id` and cannot be joined reliably.
+
 ### Refresh run log
 
 The gateway writes one structured log line, `msg="agent_profile_refresh_run"`,
 for each finished Periodic Profile Refresh evaluation. Fields: `agent_id`,
-`outcome`, `trigger`, and the bounded client metadata `mode`, `runtime_name`,
+`outcome`, `trigger`, `run_id`, and the bounded client metadata `mode`, `runtime_name`,
 `cli_version`, `plugin_version`.
 
 - `PUT .../profile/fields` with `source=cli_daily_refresh` or
