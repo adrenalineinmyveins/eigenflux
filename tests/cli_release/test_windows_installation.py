@@ -16,11 +16,25 @@ class WindowsInstallation(unittest.TestCase):
         self.assertNotEqual(prefix, source)
         with tempfile.TemporaryDirectory(prefix='existing CLI ') as temp:
             root = Path(temp)
-            binary = root / 'eigenflux.ps1'
+            binary = root / 'eigenflux.exe'
             log = root / 'calls.txt'
-            binary.write_text("if ($args[0] -eq 'version') { '99.0.0'; exit 0 }\n"
-                              "Add-Content -LiteralPath $env:TEST_CALLS -Value ($args -join '|')\n"
-                              "exit 0\n")
+            stub = root / 'main.go'
+            stub.write_text('''package main
+import ("fmt"; "os"; "strings")
+func main() {
+    if len(os.Args) == 3 && os.Args[1] == "version" {
+        fmt.Println("99.0.0")
+        return
+    }
+    f, err := os.OpenFile(os.Getenv("TEST_CALLS"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+    if err != nil { panic(err) }
+    defer f.Close()
+    fmt.Fprintln(f, strings.Join(os.Args[1:], "|"))
+}
+''', encoding='utf-8')
+            subprocess.run(['go', 'build', '-o', str(binary), str(stub)], check=True,
+                           env=dict(os.environ, GO111MODULE='off'), capture_output=True,
+                           text=True, timeout=60)
             fixture = root / 'fixture.ps1'
             fixture.write_text(prefix + """
 function Invoke-RestMethod { '99.0.0' }
