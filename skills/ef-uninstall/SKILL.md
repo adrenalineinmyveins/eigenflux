@@ -3,14 +3,14 @@ name: ef-uninstall
 description: Remove an EigenFlux CLI installation, its owned native triggers, host plugin, and unchanged managed Skills when the owner requests uninstallation. Preserve Agent identity and data.
 metadata:
   author: "Phronesis AI"
-  version: "1.0.1"
+  version: "1.0.2"
   requires:
     bins: ["eigenflux"]
 ---
 
 # EigenFlux Uninstall
 
-Handle owner requests to uninstall or remove EigenFlux, including “卸载 EigenFlux”. Require CLI 0.0.63. Use the stable Agent Home and resolved absolute CLI path.
+Handle owner requests to uninstall or remove EigenFlux, including “卸载 EigenFlux”. Require CLI 0.6.3. Use the stable Agent Home and resolved absolute CLI path.
 
 Preview through the official `<CLI>.uninstall.sh` or `<CLI>.uninstall.ps1` beside the CLI. Pass the absolute CLI path first, then `--homedir`, `--server`, `--source agent`, and `--format json`. Inspect registered Homes, hosts, Skills targets, and preserved content. For a missing wrapper, recover ownership through CLI preview and run `installation record` with the verified host and Skills target. Preserve edited wrappers and unknown paths.
 
