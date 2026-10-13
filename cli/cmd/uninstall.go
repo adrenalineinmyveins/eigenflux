@@ -114,7 +114,7 @@ var installationRecordCmd = &cobra.Command{Use: "record", Args: cobra.NoArgs, Ru
 	return nil
 }}
 
-var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a registered CLI installation; preserve Agent data", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (retErr error) {
+var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a registered CLI installation; clear local Agent data", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (retErr error) {
 	bin, err := installedExecutable()
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 			return nil
 		}
 		defer func() {
-			if retErr != nil {
+			if retErr != nil && observation.Result == "" {
 				result, code := "failed", uninstallErrorCode(retErr)
 				if observation.Mutated {
 					result = "partial"
@@ -210,7 +210,7 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 					result = "blocked"
 				}
 				observation.finish(result, code)
-			} else if apply && !observation.Pending {
+			} else if apply && !observation.Pending && observation.Result == "" {
 				result := "removed"
 				code := ""
 				if observation.Partial {
@@ -281,6 +281,9 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 		return errors.New("uninstall reason exceeds 1000 bytes")
 	}
 	removeSkills, _ := cmd.Flags().GetBool("skills")
+	if !removeSkills {
+		return errors.New("uninstall removes all registered EigenFlux Skills; --skills=false is unsupported")
+	}
 	removeNotifications, _ := cmd.Flags().GetBool("notifications")
 	confirmNotifications, _ := cmd.Flags().GetBool("notification-cleanup-confirmed")
 	if apply && removeNotifications && !confirmNotifications {
@@ -290,8 +293,8 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 	seenHome := map[string]bool{}
 	seenTarget := map[string]bool{}
 	for _, entry := range r.Homes {
-		if !filepath.IsAbs(entry.Home) {
-			return errors.New("invalid registered Home")
+		if err := validateUninstallHome(entry.Home); err != nil {
+			return fmt.Errorf("invalid registered Home: %w", err)
 		}
 		if !seenHome[entry.Home] {
 			seenHome[entry.Home] = true
@@ -326,7 +329,7 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 		return err
 	}
 	var preservedScripts []string
-	for path, digest := range r.Scripts {
+	for path := range r.Scripts {
 		if path != bin+".uninstall.sh" && path != bin+".uninstall.ps1" {
 			return errors.New("invalid registered uninstall script")
 		}
@@ -338,14 +341,6 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 			return err
 		}
 		if !info.Mode().IsRegular() {
-			preservedScripts = append(preservedScripts, path)
-			continue
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if uninstallscript.Digest(data) != digest {
 			preservedScripts = append(preservedScripts, path)
 			continue
 		}
@@ -447,7 +442,17 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 			result = "pending"
 		}
 	}
-	output.PrintData(map[string]interface{}{"result": result, "notification_cleanup": notificationCleanup, "attempt_id": attempt, "receipt_home": receiptHome, "apply": apply, "executable": bin, "homes": r.Homes, "skills": skillResults, "cleanup_files": cleanupFiles, "uninstall_scripts": r.Scripts, "preserved_scripts": preservedScripts, "retained_lock_files": []string{bin + ".install.lock", bin + ".update.lock"}, "data_preserved": true, "executable_removal_pending": apply && runtime.GOOS == "windows", "reason_saved": apply && strings.TrimSpace(reason) != "", "path_cleanup": "retain shared PATH entries; use host tools for scheduler/plugin cleanup"}, resolveFormat())
+	if apply && runtime.GOOS != "windows" {
+		code := ""
+		if observation.Partial {
+			code = "managed_content_preserved"
+		}
+		if err := observation.finishAndPurge(result, code); err != nil {
+			return err
+		}
+
+	}
+	output.PrintData(map[string]interface{}{"result": result, "notification_cleanup": notificationCleanup, "attempt_id": attempt, "receipt_home": receiptHome, "apply": apply, "executable": bin, "homes": r.Homes, "skills": skillResults, "cleanup_files": cleanupFiles, "uninstall_scripts": r.Scripts, "preserved_scripts": preservedScripts, "retained_lock_files": []string{bin + ".install.lock", bin + ".update.lock"}, "data_preserved": !apply || result != "removed", "data_cleanup_pending": apply && runtime.GOOS == "windows", "executable_removal_pending": apply && runtime.GOOS == "windows", "reason_saved": apply && result != "removed" && strings.TrimSpace(reason) != "", "path_cleanup": "retain shared PATH entries; use host tools for scheduler/plugin cleanup"}, resolveFormat())
 	return nil
 }}
 
@@ -530,9 +535,9 @@ func init() {
 	uninstallCmd.Flags().Bool("apply", false, "apply the inspected removal plan")
 	uninstallCmd.Flags().Bool("all-homes", false, "remove a binary shared by all registered Homes")
 	uninstallCmd.Flags().Bool("host-cleanup-confirmed", false, "native host triggers and plugin owners have been stopped and removed")
-	uninstallCmd.Flags().Bool("skills", false, "remove unchanged managed Skills at registered targets")
-	uninstallCmd.Flags().String("reason", "", "optional uninstall reason, retained locally in Agent Home")
-	remove := &cobra.Command{Use: "uninstall", Short: "Remove unchanged EigenFlux-managed Skills from one explicit target", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	uninstallCmd.Flags().Bool("skills", true, "remove registered EigenFlux Skills, including edited content (always enabled)")
+	uninstallCmd.Flags().String("reason", "", "optional uninstall reason, temporary local audit erased after successful cleanup")
+	remove := &cobra.Command{Use: "uninstall", Short: "Remove EigenFlux-managed Skills, including edited content, from one explicit target", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		target, _ := cmd.Flags().GetString("into")
 		if target == "" {
 			return errors.New("explicit --into target required; shared host Skills affect all accounts")
@@ -546,6 +551,6 @@ func init() {
 		return nil
 	}}
 	remove.Flags().String("into", "", "exact managed Skills target")
-	remove.Flags().Bool("apply", false, "remove unchanged managed skill directories")
+	remove.Flags().Bool("apply", false, "remove owned managed skill directories, including edited content")
 	skillsCmd.AddCommand(remove)
 }

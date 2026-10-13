@@ -114,9 +114,10 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 		if out, err := invoke("installation", "record", "--host", "codex", "--skills-target", ""); err != nil {
 			t.Fatalf("record: %v %s", err, out)
 		}
+		home, _ = filepath.EvalSymlinks(home)
 		return bin, home, invoke
 	}
-	t.Run("preview_and_apply_preserve_home", func(t *testing.T) {
+	t.Run("preview_preserves_apply_clears_home", func(t *testing.T) {
 		bin, home, invoke := fixture(t)
 		credential := filepath.Join(home, "credentials.keep")
 		_ = os.WriteFile(credential, []byte("fixture-only"), 0600)
@@ -153,13 +154,16 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 				}
 			}
 		}
-		if data, _ := os.ReadFile(credential); string(data) != "fixture-only" {
-			t.Fatal("Agent data removed")
+		if runtime.GOOS != "windows" {
+			for _, path := range []string{credential, filepath.Join(home, "config.json"), filepath.Join(home, "uninstall.json")} {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("local data retained: %s %v", path, err)
+				}
+			}
+		} else if _, err := os.Stat(credential); err != nil {
+			t.Fatal("pending Windows uninstall cleared credentials before final telemetry")
 		}
-		reason, _ := os.ReadFile(filepath.Join(home, "uninstall.json"))
-		if !strings.Contains(string(reason), "fixture retirement") {
-			t.Fatal("reason not preserved locally")
-		}
+
 	})
 	t.Run("official_wrapper_and_native_cleanup_attempt", func(t *testing.T) {
 		bin, home, invoke := fixture(t)
@@ -209,8 +213,8 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 			t.Fatal("wrapper left original executable")
 		}
 		data, _ = os.ReadFile(filepath.Join(home, "uninstall.json"))
-		if strings.Contains(string(data), "中文原因") || !strings.Contains(string(data), "removed") {
-			t.Fatalf("previous attempt reason carried over: %s", data)
+		if len(data) != 0 {
+			t.Fatalf("successful uninstall left audit data: %s", data)
 		}
 	})
 	t.Run("changed_registration_blocks_resumed_attempt", func(t *testing.T) {
@@ -240,6 +244,7 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 		if err := os.MkdirAll(other, 0700); err != nil {
 			t.Fatal(err)
 		}
+		other, _ = filepath.EvalSymlinks(other)
 		if err := registerInstallation(bin, installationHome{Home: other, Host: "claude-code"}); err != nil {
 			t.Fatal(err)
 		}
@@ -250,8 +255,8 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 			t.Fatalf("shared apply: %v %s", err, out)
 		}
 		for _, path := range []string{home, other} {
-			if _, err := os.Stat(path); err != nil {
-				t.Fatal("shared Home removed", err)
+			if _, err := os.Stat(filepath.Join(path, "config.json")); !os.IsNotExist(err) {
+				t.Fatal("shared Home config retained", err)
 			}
 		}
 	})
@@ -295,7 +300,8 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 			}
 			registeredHome := home
 			if i > 0 {
-				registeredHome = filepath.Join(t.TempDir(), ".eigenflux")
+				parent, _ := filepath.EvalSymlinks(t.TempDir())
+				registeredHome = filepath.Join(parent, ".eigenflux")
 			}
 			if err := registerInstallation(bin, installationHome{Home: registeredHome, Host: "codex", SkillsTarget: target}); err != nil {
 				t.Fatal(err)

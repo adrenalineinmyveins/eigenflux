@@ -167,7 +167,7 @@ func (o *uninstallObservation) finish(result, code string) {
 func (o *uninstallObservation) audit(result, code string) {
 	seen := map[string]bool{}
 	for _, entry := range o.Homes {
-		if !filepath.IsAbs(entry.Home) || filepath.Base(entry.Home) != ".eigenflux" || seen[entry.Home] {
+		if validateUninstallHome(entry.Home) != nil || seen[entry.Home] {
 			continue
 		}
 		seen[entry.Home] = true
@@ -212,10 +212,13 @@ func uninstallReceiptPath(attempt string) (string, error) {
 	if !regexpUninstallAttempt.MatchString(attempt) {
 		return "", errors.New("invalid uninstall attempt")
 	}
+	if err := validateUninstallHome(config.HomeDir()); err != nil {
+		return "", err
+	}
 	return filepath.Join(config.HomeDir(), "uninstall-"+attempt+".json"), nil
 }
 
-func (o *uninstallObservation) removeOriginal() error {
+func (o *uninstallObservation) removeOriginal(afterRemoval ...func() error) error {
 	// Run from the temporary trusted CLI, after the original process has exited.
 	self, err := installedExecutable()
 	if err != nil {
@@ -243,6 +246,11 @@ func (o *uninstallObservation) removeOriginal() error {
 			return err
 		}
 		releases = append(releases, release)
+	}
+	for _, entry := range o.Homes {
+		if err := validateUninstallHome(entry.Home); err != nil {
+			return err
+		}
 	}
 	seen := map[string]bool{}
 	for _, entry := range o.Homes {
@@ -298,6 +306,9 @@ func (o *uninstallObservation) removeOriginal() error {
 		}
 		o.Mutated = true
 	}
+	if len(afterRemoval) > 0 {
+		return afterRemoval[0]()
+	}
 	return nil
 }
 
@@ -329,7 +340,12 @@ func init() {
 		result, code := "removed", ""
 		remove, _ := cmd.Flags().GetBool("remove-original")
 		if remove {
-			if err := o.removeOriginal(); err != nil {
+			if err := o.removeOriginal(func() error {
+				if o.Partial {
+					return nil
+				}
+				return o.finishAndPurge("removed", "")
+			}); err != nil {
 				result, code = "partial", uninstallErrorCode(err)
 			}
 		}
@@ -344,6 +360,9 @@ func init() {
 			code = "managed_content_preserved"
 		}
 		o.Pending = false
+		if remove && o.Result != "" {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{"attempt_id": attempt, "result": result, "local_data_removed": o.Result == "removed"})
+		}
 		o.finish(result, code)
 		if err := saveMaintenance(path, &o); err != nil {
 			return err

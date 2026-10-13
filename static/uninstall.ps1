@@ -59,6 +59,9 @@ try {
   $final = $call.Output | ConvertFrom-Json
   $finalized = $true
   $result.executable_removal_pending = Test-Path -LiteralPath $resolved
+  $result.data_preserved = -not ($final.local_data_removed -eq $true)
+  $result | Add-Member -NotePropertyName data_cleanup_pending -NotePropertyValue $false -Force
+  if ($final.local_data_removed -eq $true) { $result.reason_saved = $false }
   $result | Add-Member -NotePropertyName result -NotePropertyValue $final.result -Force
   $result | ConvertTo-Json -Depth 10
   if ($final.result -ne 'removed') { exit 1 }
