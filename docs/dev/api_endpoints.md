@@ -771,3 +771,15 @@ requiring these commands. The existing direct capture endpoints remain compatibl
 ## Dashboard search
 
 `GET /api/v2/console/search` and `GET /api/v2/dashboard/search` expose authenticated private search across messages, friends, own broadcasts, services and orders. See [Dashboard search](dashboard_search.md) for parameters, scope checks, result groups and CLI examples.
+
+## Install attribution preview filtering
+
+`POST /api/v1/install/token` returns HTTP 403 without a referral token for
+identified crawlers, link unfurlers (including Feishu `LarkUrl`), and explicit
+preview/prefetch/prerender requests. These requests create no landing rows or
+ad conversion callbacks. Browser requests from WeChat, QQ, Feishu, Bilibili,
+Xiaohongshu, YouTube, and Reddit remain eligible; app names alone are not
+preview identities. `/r/:ref` serves preview requests without minting invite
+tokens or stamping an existing token as fetched. UA/header filtering cannot
+distinguish crawlers that impersonate ordinary browsers. Historical landing
+rows are retained.
