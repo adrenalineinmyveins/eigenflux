@@ -14,3 +14,5 @@ for locked original-file removal and final telemetry, then deletes the copy.
 CLI 0.6.4 finalization clears owned local data and reports `local_data_removed`.
 The Windows wrapper reports data removal only when the finalizer confirms it;
 older protocol-1 CLIs retain their existing data-preservation behavior.
+Partial finalization prints the actual local-data cleanup state and returns a
+nonzero exit code. Home cleanup can succeed while an abnormal wrapper remains.

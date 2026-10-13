@@ -336,18 +336,28 @@ func init() {
 		}
 		if !o.Pending {
 			if o.Result == "removed" || o.Result == "partial" || o.Result == "blocked" || o.Result == "failed" {
-				return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]string{"attempt_id": attempt, "result": o.Result})
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]string{"attempt_id": attempt, "result": o.Result}); err != nil {
+					return err
+				}
+				if o.Result != "removed" {
+					return errors.New("uninstall incomplete: " + o.Result)
+				}
+				return nil
 			}
 			return errors.New("uninstall receipt is already finalized")
 		}
 		result, code := "removed", ""
 		remove, _ := cmd.Flags().GetBool("remove-original")
+		localDataRemoved := false
 		if remove {
 			if err := o.removeOriginal(func() error {
+				result, code := "removed", ""
 				if o.Partial {
-					return nil
+					result, code = "partial", "managed_content_preserved"
 				}
-				return o.finishAndPurge("removed", "")
+				err := o.finishAndPurge(result, code)
+				localDataRemoved = err == nil
+				return err
 			}); err != nil {
 				result, code = "partial", uninstallErrorCode(err)
 			}
@@ -364,13 +374,25 @@ func init() {
 		}
 		o.Pending = false
 		if remove && o.Result != "" {
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{"attempt_id": attempt, "result": result, "local_data_removed": o.Result == "removed"})
+			if err := json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{"attempt_id": attempt, "result": result, "local_data_removed": localDataRemoved}); err != nil {
+				return err
+			}
+			if result != "removed" {
+				return errors.New("uninstall incomplete: " + code)
+			}
+			return nil
 		}
 		o.finish(result, code)
 		if err := saveMaintenance(path, &o); err != nil {
 			return err
 		}
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]string{"attempt_id": attempt, "result": result})
+		if err := json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]string{"attempt_id": attempt, "result": result}); err != nil {
+			return err
+		}
+		if result != "removed" {
+			return errors.New("uninstall incomplete: " + code)
+		}
+		return nil
 	}}
 	finalize.Flags().String("attempt", "", "pending uninstall attempt")
 	finalize.Flags().Bool("remove-original", false, "remove unchanged receipt-owned original installation")

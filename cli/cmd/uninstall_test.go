@@ -117,6 +117,52 @@ func TestUninstallIsolatedExecutable(t *testing.T) {
 		home, _ = filepath.EvalSymlinks(home)
 		return bin, home, invoke
 	}
+	t.Run("abnormal_wrapper_reports_partial_and_clears_home", func(t *testing.T) {
+		bin, home, invoke := fixture(t)
+		wrapper := bin + ".uninstall.sh"
+		reporterWrapper := ""
+		if runtime.GOOS == "windows" {
+			wrapper = bin + ".uninstall.ps1"
+			data, err := os.ReadFile(wrapper)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reporterWrapper = filepath.Join(t.TempDir(), "uninstall.ps1")
+			if err := os.WriteFile(reporterWrapper, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.Remove(wrapper); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(wrapper, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(home, "credentials.json"), []byte("secret"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		var out []byte
+		var err error
+		if runtime.GOOS == "windows" {
+			command := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-File", reporterWrapper, bin, "--homedir", home, "--scope", "all", "--apply", "--host-cleanup-confirmed")
+			command.Env = append(os.Environ(), "HOME="+filepath.Dir(bin), "USERPROFILE="+filepath.Dir(bin), "EIGENFLUX_HOME="+home)
+			out, err = command.CombinedOutput()
+		} else {
+			out, err = invoke("uninstall", "--scope", "all", "--apply", "--host-cleanup-confirmed")
+		}
+		if err == nil || !strings.Contains(string(out), "partial") || !strings.Contains(string(out), filepath.Base(wrapper)) {
+			t.Fatalf("partial result: %v %s", err, out)
+		}
+		if _, err := os.Stat(filepath.Join(home, "credentials.json")); !os.IsNotExist(err) {
+			t.Fatalf("credentials retained: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(home, "uninstall.json")); !os.IsNotExist(err) {
+			t.Fatalf("Home audit recreated: %v", err)
+		}
+		if !strings.Contains(strings.Join(strings.Fields(string(out)), " "), `"data_preserved": false`) {
+			t.Fatalf("inaccurate cleanup state: %s", out)
+		}
+	})
 	t.Run("preview_preserves_apply_clears_home", func(t *testing.T) {
 		bin, home, invoke := fixture(t)
 		credential := filepath.Join(home, "credentials.keep")

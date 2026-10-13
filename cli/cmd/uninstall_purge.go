@@ -145,7 +145,7 @@ func (o *uninstallObservation) finishAndPurge(result, code string) error {
 		uploads = append(uploads, upload{c, scope})
 	}
 	var cleanupErr error
-	if result == "removed" {
+	if result == "removed" || result == "partial" {
 		cleanupErr = o.purgeHomes()
 		if cleanupErr == nil && o.RemovalScope == "current" {
 			if o.RemainingRegistration == nil {
@@ -161,7 +161,7 @@ func (o *uninstallObservation) finishAndPurge(result, code string) error {
 	}
 	o.Pending = false
 	o.Result = result
-	if result != "removed" {
+	if cleanupErr != nil {
 		o.audit(result, code)
 		if path, err := uninstallReceiptPath(o.AttemptID); err == nil {
 			_ = saveMaintenance(path, o)

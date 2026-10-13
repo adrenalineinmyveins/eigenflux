@@ -20,7 +20,14 @@ confirmation, explicit current/all scope, and stopped watchers in that scope.
 The Skill asks whether other Agents still need EigenFlux before cleanup. Current
 scope keeps the CLI, other Homes, shared Skills and notification integration,
 then removes only current Home registrations. All scope removes the installation.
+Current removal preserves Skills outside the current Home even when no other
+Agent is registered. A missing Skills directory is already removed; an existing
+directory still requires its ownership manifest.
 Scope is pinned in the begin receipt; changing it requires a fresh attempt.
+
+Official installers use the downloaded CLI's internal `installation replace`
+command to replace the binary and register ownership under install/update locks.
+Windows installs managed Skills through sync and records the actual target.
 
 The event is `maintenance_attempt`, `phase=uninstall`, `trigger=manual`.
 Results: `started`, `removed`, `partial`, `failed`, `blocked`. Source distinguishes
@@ -46,8 +53,10 @@ On Windows the script copies the current CLI into a temporary directory after
 the original exits. Finalization reacquires install/update/watch locks, verifies
 receipt-owned file hashes, removes unchanged originals, observes absence, records
 the result, and cleans the copy. An intervening update or registration blocks
-deletion. Blocked or partial finalization retains receipts for inspection. Successful
-finalization clears receipts along with other local data. Receipts carry no credentials or reason text.
+deletion. Cleanup failures retain failure state for inspection. Abnormal wrappers
+still allow Home cleanup, report partial and exit unsuccessfully. The Windows
+wrapper prints the actual cleanup state even when the finalizer reports partial.
+Successful Home cleanup clears receipts without recreating them. Receipts carry no credentials or reason text.
 
 Notification cleanup is explicit because all accounts share one integration.
 macOS requires the installed bundle ownership digest and stops the helper through

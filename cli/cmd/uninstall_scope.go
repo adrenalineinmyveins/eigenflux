@@ -41,6 +41,11 @@ func selectUninstallScope(record installationRecord, home, scope string) (uninst
 		if selected.SkillsTarget == "" {
 			continue
 		}
+		// Registrations do not cover older Agents. Only a target inside this
+		// Home has enough ownership evidence for current-Agent removal.
+		if !strings.HasPrefix(selected.SkillsTarget, canonical+string(filepath.Separator)) {
+			plan.SharedSkills[selected.SkillsTarget] = true
+		}
 		for _, remaining := range plan.Remaining.Homes {
 			for _, path := range []string{remaining.Home, remaining.SkillsTarget} {
 				if path != "" && (path == selected.SkillsTarget || strings.HasPrefix(path, selected.SkillsTarget+string(filepath.Separator)) || strings.HasPrefix(selected.SkillsTarget, path+string(filepath.Separator))) {

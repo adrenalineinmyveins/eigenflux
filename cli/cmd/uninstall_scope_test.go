@@ -69,3 +69,22 @@ func TestCurrentScopeKeepsExecutableInsideCurrentHome(t *testing.T) {
 		t.Fatal("current credentials retained", err)
 	}
 }
+
+func TestCurrentScopePreservesExternalSkillsWithoutOtherRegistrations(t *testing.T) {
+	base, _ := filepath.EvalSymlinks(t.TempDir())
+	home := filepath.Join(base, ".eigenflux")
+	if err := os.MkdirAll(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	external := filepath.Join(base, "shared-skills")
+	private := filepath.Join(home, "skills")
+	for _, target := range []string{external, private} {
+		plan, err := selectUninstallScope(installationRecord{Homes: []installationHome{{Home: home, SkillsTarget: target}}}, home, "current")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan.SharedSkills[target] != (target == external) {
+			t.Fatalf("incorrect ownership decision for %s: %+v", target, plan)
+		}
+	}
+}

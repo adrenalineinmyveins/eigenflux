@@ -160,3 +160,29 @@ func TestUninstallTerminalFollowsDataCleanup(t *testing.T) {
 		})
 	}
 }
+
+func TestUninstallPartialStillClearsLocalData(t *testing.T) {
+	restore := config.UseHomeDir(config.HomeDir())
+	defer restore()
+	home := filepath.Join(t.TempDir(), ".eigenflux")
+	if err := os.MkdirAll(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	home, _ = filepath.EvalSymlinks(home)
+	config.SetHomeDir(home)
+	if err := os.WriteFile(filepath.Join(home, "credentials.json"), []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	o := newUninstallObservation(filepath.Join(filepath.Dir(home), "eigenflux"), "manual", "not_provided", "")
+	o.Homes = []installationHome{{Home: home}}
+	o.Partial = true
+	if err := o.finishAndPurge("partial", "managed_content_preserved"); err != nil {
+		t.Fatal(err)
+	}
+	if o.Result != "partial" {
+		t.Fatalf("wrong result: %s", o.Result)
+	}
+	if _, err := os.Lstat(home); !os.IsNotExist(err) {
+		t.Fatalf("partial retained or recreated Home: %v", err)
+	}
+}

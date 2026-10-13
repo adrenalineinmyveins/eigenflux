@@ -51,6 +51,11 @@ func registerInstallation(executable string, entry installationHome) error {
 		return err
 	}
 	defer release()
+	return registerInstallationUnlocked(executable, entry)
+}
+
+// The caller holds the installation lock.
+func registerInstallationUnlocked(executable string, entry installationHome) error {
 	r := installationRecord{Version: 1, Executable: executable}
 	if b, err := os.ReadFile(executable + ".install.json"); err == nil {
 		if err = json.Unmarshal(b, &r); err != nil {
@@ -475,6 +480,7 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 			result = "pending"
 		}
 	}
+	localDataRemoved := false
 	if apply && (runtime.GOOS != "windows" || scope == "current") {
 		code := ""
 		if observation.Partial {
@@ -483,9 +489,12 @@ var uninstallCmd = &cobra.Command{Use: "uninstall", Short: "Preview or remove a 
 		if err := observation.finishAndPurge(result, code); err != nil {
 			return err
 		}
-
+		localDataRemoved = true
 	}
-	output.PrintData(map[string]interface{}{"result": result, "scope": scope, "scope_selection_required": scope == "", "scope_question": "Do other Agents still need EigenFlux?", "scope_choices": []string{"current", "all"}, "shared_cli_preserved": scope == "current", "shared_resources_preserved": plan.RetainedPaths, "notification_cleanup": notificationCleanup, "attempt_id": attempt, "receipt_home": receiptHome, "apply": apply, "executable": bin, "homes": r.Homes, "skills": skillResults, "cleanup_files": cleanupFiles, "uninstall_scripts": r.Scripts, "preserved_scripts": preservedScripts, "retained_lock_files": []string{bin + ".install.lock", bin + ".update.lock"}, "data_preserved": !apply || result != "removed", "data_cleanup_pending": apply && runtime.GOOS == "windows" && scope != "current", "executable_removal_pending": apply && runtime.GOOS == "windows" && scope != "current", "reason_saved": apply && result != "removed" && strings.TrimSpace(reason) != "", "path_cleanup": "retain shared PATH entries; use host tools for scheduler/plugin cleanup"}, resolveFormat())
+	output.PrintData(map[string]interface{}{"result": result, "scope": scope, "scope_selection_required": scope == "", "scope_question": "Do other Agents still need EigenFlux?", "scope_choices": []string{"current", "all"}, "shared_cli_preserved": scope == "current", "shared_resources_preserved": plan.RetainedPaths, "notification_cleanup": notificationCleanup, "attempt_id": attempt, "receipt_home": receiptHome, "apply": apply, "executable": bin, "homes": r.Homes, "skills": skillResults, "cleanup_files": cleanupFiles, "uninstall_scripts": r.Scripts, "preserved_scripts": preservedScripts, "retained_lock_files": []string{bin + ".install.lock", bin + ".update.lock"}, "data_preserved": !localDataRemoved, "data_cleanup_pending": apply && runtime.GOOS == "windows" && scope != "current", "executable_removal_pending": apply && runtime.GOOS == "windows" && scope != "current", "reason_saved": apply && !localDataRemoved && strings.TrimSpace(reason) != "", "path_cleanup": "retain shared PATH entries; use host tools for scheduler/plugin cleanup"}, resolveFormat())
+	if apply && result == "partial" {
+		return fmt.Errorf("uninstall incomplete; retained managed paths: %v", preservedScripts)
+	}
 	return nil
 }}
 

@@ -141,3 +141,19 @@ func TestUninstallUnlinksSkillWithoutFollowingAndRejectsLinkedManifest(t *testin
 		t.Fatal("linked manifest accepted")
 	}
 }
+
+func TestUninstallMissingTargetIsAlreadyCleaned(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "missing")
+	for _, apply := range []bool{false, true} {
+		result, err := Uninstall(target, apply)
+		if err != nil || result == nil || len(result.Removed) != 0 {
+			t.Fatalf("missing target: %+v %v", result, err)
+		}
+	}
+	if err := os.MkdirAll(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Uninstall(target, true); err == nil {
+		t.Fatal("existing unowned directory accepted")
+	}
+}

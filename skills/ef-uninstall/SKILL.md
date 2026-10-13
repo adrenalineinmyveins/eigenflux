@@ -3,7 +3,7 @@ name: ef-uninstall
 description: Remove an EigenFlux CLI installation, its owned native triggers, host plugin, and managed Skills when the owner requests uninstallation. Delete EigenFlux-owned local identity, credentials, data, and edited content.
 metadata:
   author: "Phronesis AI"
-  version: "1.0.4"
+  version: "1.0.5"
   requires:
     bins: ["eigenflux"]
 ---
@@ -20,7 +20,11 @@ Run the wrapper with `--begin` before native cleanup. Carry its ID through `--at
 
 For current-Agent removal, stop only the current Home's watch owners. Use host-native tools to remove only its EigenFlux triggers, plugin bindings, and configuration. Preserve plugin packages, Skills, notification integrations, and other resources still used by another Agent. For complete removal, stop and remove all registered owners with their native tools, matching task identity, Home, and server. Preserve unrelated tasks and shared configuration. Resolve ambiguous ownership with the owner.
 
+For current-Agent removal, preserve Skills targets outside the current Home. Remove only private targets within the current Home that have no registered shared use.
+
 Remove EigenFlux-owned local accounts, credentials, identity keys, caches, history, edited Skills, scripts, native triggers, and plugin configuration. Use the selected scope. Preserve unrelated host configuration.
+
+For complete Windows removal, inspect `%USERPROFILE%\.agents\skills` for legacy installations without a managed manifest. Verify EigenFlux ownership from each Skill's `SKILL.md` and remove those directories with host-native tools. Preserve unverified directories.
 
 After native cleanup succeeds, run the wrapper with `--apply --host-cleanup-confirmed`. Include `--notifications --notification-cleanup-confirmed` only for complete removal when scope covers all notification users. Preserve shared or changed notification assets. Verify Windows finalization after the original CLI exits.
 

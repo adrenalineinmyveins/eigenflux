@@ -22,6 +22,9 @@ func Uninstall(target string, apply bool, keepManifest ...bool) (*UninstallResul
 		return nil, err
 	}
 	info, err := os.Lstat(abs)
+	if os.IsNotExist(err) {
+		return &UninstallResult{Target: abs, Apply: apply, Removed: []string{}, Preserved: []string{}}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
