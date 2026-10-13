@@ -11,3 +11,7 @@ Persist a batch atomically in `telemetry_events_v2` as `maintenance_attempt`, wi
 These are client-reported maintenance observations, not proof of order fulfillment or delivery. The local watch keeps business execution independent of ordinary maintenance-upload failures.
 
 No schema migration is required. Validate the HTTP contract and run `TestMaintenancePostgresAgentAuthIdentityAndIdempotency` against an isolated loopback PostgreSQL database; it rolls back temporary test tables. Production verification must not create test telemetry or orders.
+
+## Uninstall observations
+
+Accept phase=uninstall with trigger=manual and results started, removed, partial, failed or blocked. Sources are agent/manual; platforms darwin/windows/linux. Require reason_category: not_provided, other, usability, cost, performance, privacy or no_longer_needed. Reject this metadata outside uninstall; reject free-text reasons, paths and client-selected account identity. Count distinct attempt_id across accounts; only removed counts toward the reason pie chart. No CLI, Skill or other business behavior changes are included in this backend contract.

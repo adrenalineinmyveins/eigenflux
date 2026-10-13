@@ -101,6 +101,21 @@ func TestMaintenancePostgresAgentAuthIdentityAndIdempotency(t *testing.T) {
 			t.Fatal("browser telemetry can reserve an internal maintenance event key")
 		}
 	}
+	uninstall := maintenanceEvent{EventID: fmt.Sprintf("%064x", 123), AttemptID: fmt.Sprintf("%032x", 456), EventAt: time.Now().UnixMilli(), Component: "cli", Trigger: "manual", Phase: "uninstall", Result: "removed", Source: "agent", Platform: "darwin", ReasonCategory: "privacy"}
+	body = map[string]interface{}{"events": []maintenanceEvent{uninstall}}
+	for _, id := range []int64{42, 42, 43} {
+		if status := send(id); status != 202 {
+			t.Fatalf("uninstall ingestion: %d", status)
+		}
+	}
+	var uninstallCount int64
+	if err := tx.Raw(`SELECT count(*) FROM telemetry_events_v2 WHERE event_type='maintenance_attempt' AND properties->>'phase'='uninstall' AND properties->>'result'='removed' AND properties->>'reason_category'='privacy'`).Scan(&uninstallCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if uninstallCount != 2 {
+		t.Fatalf("uninstall metadata or identity deduplication: %d", uninstallCount)
+	}
+
 	exec(`UPDATE agent_credential_sessions SET scopes=ARRAY['feed:read'] WHERE principal_id=42`)
 	if status := send(42); status != 403 {
 		t.Fatalf("missing settings scope: %d", status)
