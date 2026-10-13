@@ -5,12 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"cli.eigenflux.ai/internal/config"
 )
 
 func TestV2CredentialsLockReleasesAfterWindowsReaderCloses(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("EIGENFLUX_HOME", home)
-	path := filepath.Join(home, "servers", "review", ".agent-v2-refresh.lock")
+	path := filepath.Join(config.HomeDir(), "servers", "review", ".agent-v2-refresh.lock")
 	closed := make(chan struct{})
 	err := WithV2CredentialsLock("review", time.Second, func() error {
 		reader, err := os.Open(path)
