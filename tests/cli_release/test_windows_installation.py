@@ -11,7 +11,7 @@ class WindowsInstallation(unittest.TestCase):
         shell = shutil.which('powershell') or shutil.which('pwsh')
         if os.name != 'nt' or not shell:
             self.skipTest('Windows PowerShell required')
-        source = (Path(__file__).resolve().parents[2] / 'static/install.ps1').read_text()
+        source = (Path(__file__).resolve().parents[2] / 'static/install.ps1').read_text(encoding='utf-8')
         prefix = source.split('# ── Main ─')[0]
         self.assertNotEqual(prefix, source)
         with tempfile.TemporaryDirectory(prefix='existing CLI ') as temp:
@@ -30,7 +30,7 @@ if ($script:installedCliPath -ne $env:TEST_BINARY) { throw 'Wrong existing CLI p
 Migrate-Config
 & $script:installedCliPath --homedir $env:EIGENFLUX_HOME installation record --host codex --skills-target ''
 if ($LASTEXITCODE -ne 0) { throw 'Registration failed' }
-""")
+""", encoding='utf-8-sig')
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        TEST_CALLS=str(log), TEST_BINARY=str(binary),
                        EIGENFLUX_HOME=str(root / 'agent home'), USERPROFILE=str(root))

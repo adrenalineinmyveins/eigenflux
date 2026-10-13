@@ -76,7 +76,12 @@ jobs:
       - name: Test runtime identity persistence and automatic reporting
         run: go test -count=1 ./internal/profilestate ./internal/client ./internal/config ./cmd
       - name: Test uninstall telemetry and owned installation cleanup
-        run: go test -count=1 ./internal/maintenance ./internal/watch ./internal/skills ./internal/desktopnotify ./internal/uninstallscript
+        run: |
+          go test -count=1 ./internal/maintenance ./internal/watch ./internal/desktopnotify ./internal/uninstallscript
+          go test -count=1 -run TestUninstall ./internal/skills
+      - name: Test full Skills suite on POSIX
+        if: runner.os != 'Windows'
+        run: go test -count=1 ./internal/skills
       - name: Test signed Skills installation and upgrade compatibility
         if: runner.os == 'Linux'
         run: go test ./tests
