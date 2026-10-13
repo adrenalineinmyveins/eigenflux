@@ -480,6 +480,13 @@ var agentV2ProvisionCmd = &cobra.Command{
 			"runtime_host": meta.Host, "mode": meta.Mode,
 			"runtime_identity_complete": meta.Host != "" && meta.Mode != "",
 		}
+		if ref != "" {
+			reportErr := reportProvisionedInstall(*server, ref, meta)
+			result["install_reported"] = reportErr == nil
+			if reportErr != nil {
+				output.PrintMessage("Agent registration succeeded, but installation reporting is incomplete. Retry agent provision with the same Home and server to resend it.")
+			}
+		}
 		homeDir, homeSource := config.HomeDirInfo()
 		result["home"] = homeDir
 		result["home_source"] = homeSource
