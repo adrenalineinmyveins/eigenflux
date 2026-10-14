@@ -155,14 +155,14 @@ def main():
             if paired_complete:
                 uncensored_totals[arm].update(counts)
         row["delivery_delta"] = row["after_delivered"] - row["before_delivered"]
-        row["positive_estimate_delta"] = row["after_expected_positive_events_source"] - row["before_expected_positive_events_source"]
+        row["positive_estimate_delta"] = round(row["after_expected_positive_events_source"] - row["before_expected_positive_events_source"], 5)
         rows.append(row)
     snapshot_digest = hashlib.sha256("\n".join(hashes).encode()).hexdigest()
     if snapshot_digest != manifest["snapshots_sha256"]:
         raise ValueError("captured snapshots changed after replay")
     args.out.mkdir(parents=True, exist_ok=True)
     with (args.out / "fixed-225-effects.csv").open("w") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
     summary = {
