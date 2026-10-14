@@ -33,6 +33,7 @@ type RefillSources interface {
 
 type RefillReport struct {
 	HistoryComplete bool `json:"history_complete"`
+	LimitReached    bool `json:"limit_reached"`
 	Groups          int  `json:"groups"`
 	Contexts        int  `json:"contexts"`
 	Recalled        int  `json:"recalled"`
@@ -264,6 +265,7 @@ func (e *Engine) refill(ctx context.Context, owner int64, states []refillContext
 			return nil, report, nil, fmt.Errorf("refill source exceeds bound")
 		}
 		report.Recalled += len(res.docs)
+		report.LimitReached = report.LimitReached || len(res.docs) == 80
 		merged := map[string]Document{}
 		docs := make([]Document, 0, len(res.docs))
 		for _, d := range res.docs {

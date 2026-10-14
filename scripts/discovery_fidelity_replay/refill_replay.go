@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"eigenflux_server/pkg/config"
@@ -194,6 +195,7 @@ func replayRefill(cfg *config.Config, dir string) {
 	if len(cohort) != 225 {
 		panic("expected 225 Agents")
 	}
+	snapshotHashes := []string{}
 	snapshots := []*refillSnapshot{}
 	comparisons := []refillComparison{}
 	owners := map[int64]bool{}
@@ -204,6 +206,7 @@ func replayRefill(cfg *config.Config, dir string) {
 		owners[a.AgentID] = true
 		b, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("refill-agent-%d.json", a.AgentID)))
 		must(err)
+		snapshotHashes = append(snapshotHashes, fmt.Sprintf("%x", sha256.Sum256(b)))
 		var s refillSnapshot
 		must(json.Unmarshal(b, &s))
 		if s.Owner != a.AgentID || s.CaptureFormat != refillCaptureFormat {
@@ -294,6 +297,6 @@ func replayRefill(cfg *config.Config, dir string) {
 		must(err)
 		inputs[name] = fmt.Sprintf("%x", sha256.Sum256(raw))
 	}
-	save(filepath.Join(dir, "refill-manifest.json"), map[string]any{"input_sha256": inputs, "capture_format": refillCaptureFormat, "agents": 225, "steps": 24, "page_size": 20, "capture_depth": refillCaptureDepth, "schedule": "repeated refresh; frozen clock/corpus/contexts; advancing consumption and shared injection claims", "aa_equal": 225})
+	save(filepath.Join(dir, "refill-manifest.json"), map[string]any{"snapshots_sha256": fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(snapshotHashes, "\n")))), "input_sha256": inputs, "capture_format": refillCaptureFormat, "agents": 225, "steps": 24, "page_size": 20, "capture_depth": refillCaptureDepth, "schedule": "repeated refresh; frozen clock/corpus/contexts; advancing consumption and shared injection claims", "aa_equal": 225})
 	fmt.Println("225 Agents: A/A exact; 24 sequential refresh requests in each arm; no duplicate/initially consumed deliveries")
 }

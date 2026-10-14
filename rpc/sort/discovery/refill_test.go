@@ -206,6 +206,26 @@ func TestConsumedRefillBucketStableAndNested(t *testing.T) {
 		t.Fatalf("unexpected allocation %d", n)
 	}
 }
+
+func TestConsumedRefillDoesNotClaimExhaustiveSupplyAtScanBound(t *testing.T) {
+	e, s := refillFixture()
+	for id := int64(1); id <= 80; id++ {
+		d := refillDoc(id)
+		d.Visible = false
+		s.pool = append(s.pool, d)
+	}
+	x := runRefill(t, e, 20)
+	if len(x.Candidates) != 0 || x.Refill == nil || !x.Refill.LimitReached {
+		t.Fatalf("invalid bounded result: %+v", x)
+	}
+	found := false
+	for _, reason := range x.PartialReasons {
+		found = found || reason == "consumed_refill:scan_budget"
+	}
+	if !found {
+		t.Fatal("a full rejected refill page must not imply proven empty supply")
+	}
+}
 func TestConsumedGroupsUsesRollingAuthorityAndBound(t *testing.T) {
 	mr := miniredis.RunT(t)
 	r := redis.NewClient(&redis.Options{Addr: mr.Addr()})

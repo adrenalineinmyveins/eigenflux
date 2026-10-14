@@ -594,12 +594,15 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 	if err != nil {
 		return x, err
 	}
-	short := len(x.Candidates) < resultLimit
-	if mode == Recommendation && r.Prefetch {
-		page, _ := SelectRecommendationPage(x.Candidates, r.Limit, x.SourceLimits)
-		short = short || len(page) < r.Limit
+	underfilled := func() bool {
+		short := len(x.Candidates) < resultLimit
+		if mode == Recommendation && r.Prefetch {
+			page, _ := SelectRecommendationPage(x.Candidates, r.Limit, x.SourceLimits)
+			short = short || len(page) < r.Limit
+		}
+		return short
 	}
-	if mode == Recommendation && consumedRefillEnabled(owner, e.ConsumedRefillBPS) && short {
+	if mode == Recommendation && consumedRefillEnabled(owner, e.ConsumedRefillBPS) && underfilled() {
 		additional, report, reasons, err := e.refill(ctx, owner, states, seenHeadGroups, now, evaluate)
 		if err != nil {
 			return x, err
@@ -624,6 +627,10 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 			if err != nil {
 				return x, err
 			}
+		}
+		if report != nil && report.LimitReached && underfilled() {
+			x.PartialReasons = append(x.PartialReasons, "consumed_refill:scan_budget")
+			metrics.DiscoveryRefill.WithLabelValues("scan_budget").Inc()
 		}
 	}
 	x.PartialReasons = unique(x.PartialReasons)

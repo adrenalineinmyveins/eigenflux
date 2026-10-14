@@ -834,6 +834,8 @@ retains the parent deadline. The wave adds no retry loop or consumption writes.
 Existing client retries remain subject to the deadline. It is bounded recovery,
 not exhaustive retrieval.
 
+A still-short result after a full 80-hit refill page reports `scan_budget`;
+it does not claim that eligible inventory is exhausted.
 Truncation and optional history, recall or validation failures appear in
 `partial_reasons` and `discovery_consumed_refill_total{outcome=...}`. Failed
 additional candidates cannot bypass authority checks; existing validated

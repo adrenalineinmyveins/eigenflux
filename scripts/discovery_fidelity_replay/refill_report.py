@@ -49,10 +49,15 @@ def main():
     root = args.dir
     manifest = json.loads((root / "refill-manifest.json").read_text())
     cohort = json.loads((root / "cohort.json").read_text())
-    if len(cohort) != 225 or manifest["aa_equal"] != 225:
+    for name, digest in manifest["input_sha256"].items():
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != digest:
+            raise ValueError("replay inputs changed before report")
+    if len(cohort) != 225 or len({c["AgentID"] for c in cohort}) != 225 or manifest["aa_equal"] != 225:
         raise ValueError("fixed 225-Agent replay incomplete")
     history = rates([json.loads(line) for line in (root / "rate-history.jsonl").read_text().splitlines()])
     rows, totals = [], {a: collections.Counter() for a in ("before", "after")}
+    uncensored_totals = {a: collections.Counter() for a in totals}
+    uncensored_agents = 0
     by_step = {a: [collections.Counter() for _ in range(24)] for a in totals}
     rejections = {a: collections.Counter() for a in totals}
     first_rejections = {a: collections.Counter() for a in totals}
@@ -80,13 +85,19 @@ def main():
                     lexical_head["seen"] += 1
                 else:
                     lexical_head["remaining_before_other_gates"] += 1
+                if hydrated is not None and d.get("group_id", 0) != hydrated.get("group_id", 0):
+                    lexical_head["es_forward_group_disagreements"] += 1
         captures.append(s["At"])
         capture_ends.append(s["At"] + s["CaptureMS"])
         result = json.loads((root / f"refill-comparison-{aid}.json").read_text())
+        if result["Owner"] != c["AgentID"]:
+            raise ValueError("replay owner mismatch")
         row = {"agent": hashlib.sha256(("consumed-refill-20261014:" + aid).encode()).hexdigest()[:12]}
+        paired_complete = not (result["Before"]["PoolIncomplete"] or result["After"]["PoolIncomplete"])
+        uncensored_agents += int(paired_complete)
         for arm in totals:
             data = result[arm.capitalize()]
-            if len(data["Steps"]) != 24:
+            if [step["Step"] for step in data["Steps"]] != list(range(1, 25)):
                 raise ValueError("incomplete sequence")
             mix, counts = collections.Counter(), collections.Counter()
             delivered_groups = set()
@@ -136,9 +147,14 @@ def main():
             for field in ("delivered", "pgc", "ugc", "need", "profile", "friend", "baseline", "under7", "7to30", "over30", "empty_requests", "partial_requests", "censored_agents", "expected_positive_events_source", "expected_positive_events_source_age"):
                 row[f"{arm}_{field}"] = round(counts[field], 5)
             totals[arm].update(counts)
+            if paired_complete:
+                uncensored_totals[arm].update(counts)
         row["delivery_delta"] = row["after_delivered"] - row["before_delivered"]
         row["positive_estimate_delta"] = row["after_expected_positive_events_source"] - row["before_expected_positive_events_source"]
         rows.append(row)
+    snapshot_digest = hashlib.sha256("\n".join(hashes).encode()).hexdigest()
+    if snapshot_digest != manifest["snapshots_sha256"]:
+        raise ValueError("captured snapshots changed after replay")
     args.out.mkdir(parents=True, exist_ok=True)
     with (args.out / "fixed-225-effects.csv").open("w") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
@@ -147,8 +163,10 @@ def main():
     summary = {
         "manifest": manifest,
         "capture_start_ms": min(captures), "capture_end_ms": max(capture_ends),
-        "snapshots_sha256": hashlib.sha256("\n".join(hashes).encode()).hexdigest(),
+        "snapshots_sha256": snapshot_digest,
         "totals": totals, "by_step": by_step, "rejections": rejections,
+        "uncensored_agents": uncensored_agents, "uncensored_totals": uncensored_totals,
+        "coverage_limit": "All 225 Agents remain in the primary report. Any censored arm is an unvalidated scenario estimate; inspect the separately reported complete pairs and do not use aggregate fill gains to waive the missing coverage.",
         "first_request_rejections": first_rejections, "initial_lexical_head": lexical_head,
         "stage_count_semantics": "Initial lexical counts are candidate/context rows before other-channel merge; first-request Engine rejection events include all channels and context duplication. They are diagnostic counts, not one additive unique-item funnel.",
         "agents_more": sum(r["delivery_delta"] > 0 for r in rows),

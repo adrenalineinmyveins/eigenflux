@@ -52,7 +52,9 @@ members, verifies at most 8,192 groups, prioritizes groups rejected by the curre
 request, and reports truncated coverage. A request gets at most ten contexts,
 80 extra hits per context, six concurrent searches and a shared 750 ms optional
 budget. Optional failures preserve already-eligible original candidates with
-explicit partial reasons. Existing Feed delivery claims remain authoritative for
+explicit partial reasons. A still-short result after hitting the recall bound
+reports scan-budget exhaustion rather than claiming no deeper inventory exists.
+Existing Feed delivery claims remain authoritative for
 concurrent requests and retries. No new delivery state is written by refill.
 
 ## Paired replay protocol
@@ -98,7 +100,8 @@ invented as negatives. Missing historical support is an explicit report error.
 - Full core build passed on macOS arm64, Go 1.26.5. The repository build reports
   that optional Swagger regeneration is unavailable because `swag` is absent.
 - Targeted race tests pass for Discovery, Feed delivery, configuration and the
-  fidelity replay. Python report tests pass.
+  fidelity replay. Five Python report tests pass, including zero-Agent retention,
+  censored-pair reporting and rejection of inputs changed after replay.
 - The actual HTTP/API/Feed/Sort regression passes with PostgreSQL 16, Redis 7,
   Elasticsearch 8.11 and etcd in isolated local fixtures.
 - Additional tests cover default-off behavior, sequential depletion, history and
@@ -106,6 +109,16 @@ invented as negatives. Missing historical support is an explicit report error.
   history bounds, capped prefetch refill and preserved Need attribution.
 - The capture bridge is tested against serving fingerprints (Unicode and 64-bit
   IDs) and rolling consumption semantics (owner, day boundary and chunking).
+
+An isolated Redis 7 resource check used 65,536 personal history members,
+8,192 verified-prefix entries and 30 populated authority buckets (8,192 members
+of another owner in each, zero matches). The single cold history lookup took
+65.9 ms; 20 sequential reads had median 69.7 ms / p95 74.7 ms; 30 reads with six
+concurrent callers had median 298.6 ms / p95 400.7 ms / maximum 428.8 ms, with no
+timeouts under a 750 ms deadline. Raw samples are in
+[history-reader-local-cost.json](history-reader-local-cost.json). This measures
+only history lookup on local hardware; it excludes ES, hydration and production
+load, and therefore does not establish the complete online budget.
 
 Do not merge or activate on fill-rate improvement alone. Required remaining
 quality evidence includes uncensored replay coverage, source/group projection
@@ -116,7 +129,7 @@ establish its usefulness.
 
 After those gates and review, use `DISCOVERY_CONSUMED_REFILL_BPS` for a stable
 small canary, then a pre-registered control/treatment evaluation. Zero disables
-new refill executions after configuration reload/restart; existing Feed snapshots
+new refill executions after restarting Sort with the updated configuration; existing Feed snapshots
 can survive for up to 30 minutes and delivered history is preserved. Record the
 actual activation time separately from code deployment. The release annotation
 explicitly states that deploying default-off code does not activate treatment.
