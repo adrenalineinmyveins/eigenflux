@@ -32,6 +32,7 @@ type Engine struct {
 	frozenContexts    []Context
 	Learned           LearnedRanker
 	FriendFeedEnabled bool
+	ConsumedRefillBPS int
 	SourceLimits      []SourceLimit
 	Compiler          *Compiler
 	Needs             NeedReader
@@ -48,6 +49,7 @@ type Execution struct {
 	Status         string        `json:"status"`
 	PartialReasons []string      `json:"partial_reasons,omitempty"`
 	FallbackReason string        `json:"fallback_reason,omitempty"`
+	Refill         *RefillReport `json:"refill,omitempty"`
 }
 
 func (e *Engine) contexts(ctx context.Context, owner int64, r Request, mode Mode, now int64) ([]Context, string, error) {
@@ -415,6 +417,78 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 	recalled := map[int64]recallsource.Source{}
 	anySuccess := false
 	below, exhausted := false, false
+	states := make([]refillContext, len(contexts))
+	seenHeadGroups := map[int64]bool{}
+	evaluate := func(evalCtx context.Context, c Context, merged map[string]Document, docs []Document) ([]Candidate, error) {
+		eligible := []Candidate{}
+		fresh, err := e.Sources.Hydrate(evalCtx, owner, mode, docs)
+		if err != nil {
+			return nil, err
+		}
+		seen := map[string]bool{}
+		if mode == Recommendation {
+			seen, err = e.Sources.Seen(evalCtx, owner, fresh)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, d := range fresh {
+			prior, ok := merged[d.Ref.Key()]
+			if !ok {
+				return nil, Failure(503, "unexpected_hydrated_source")
+			}
+			if prior.Version != d.Version && !(d.Ref.Type == Broadcast && prior.Version == "") {
+				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), "source_version").Inc()
+				continue
+			}
+			// Recall text is tied to the version just validated. Pool-only rows
+			// obtain their text from the bounded DB presentation read instead.
+			if prior.Version != "" {
+				d.Text = prior.Text
+				if d.Ref.Type != Agent {
+					d.Preview = prior.Preview
+				}
+			}
+			d.Lexical = prior.Lexical
+			d.DenseScore = prior.DenseScore
+			d.Channels = prior.Channels
+			d.ExactMatch = prior.ExactMatch
+			if mode == Recommendation {
+				sources := d.RecallSources()
+				for _, name := range recallsource.Names(sources &^ recalled[d.Ref.ID]) {
+					metrics.RecallFeedTotal.WithLabelValues(name).Inc()
+				}
+				recalled[d.Ref.ID] |= sources
+			}
+			if seen[d.Ref.Key()] {
+				if d.Ref.Type == Broadcast && d.GroupID > 0 {
+					seenHeadGroups[d.GroupID] = true
+				}
+				exhausted = true
+				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), "seen").Inc()
+				continue
+			}
+			if reason := Check(c, d, mode, now); reason != "" {
+				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), reason).Inc()
+				continue
+			}
+			d.Text = ""
+			score := ScoreRules(c, d, e.Rules[d.Ref.Type][mode], now)
+			if mode == Recommendation && d.RecallSources().Has(recallsource.Friend) {
+				score.Eligible = true
+				score.Features["friend_relevance_bypass"] = 1
+				score.Version += ":friend_feed_v1"
+			}
+			if !score.Eligible {
+				below = true
+				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), "below_threshold").Inc()
+			}
+			if score.Eligible {
+				eligible = append(eligible, Candidate{FinalScore: score.Value, Context: c, Document: d, Score: score})
+			}
+		}
+		return eligible, nil
+	}
 	for ci, c := range contexts {
 		if c.UnverifiedNeedReason != "" {
 			continue
@@ -476,74 +550,84 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 		for _, key := range order {
 			docs = append(docs, merged[key])
 		}
-		fresh, err := e.Sources.Hydrate(ctx, owner, mode, docs)
+		states[ci] = refillContext{context: c, documents: merged}
+		for _, res := range results {
+			if res.ci == ci && res.kind == Broadcast && res.channel == "lexical" && res.err == nil {
+				for _, d := range res.docs {
+					states[ci].lexicalIDs = append(states[ci].lexicalIDs, d.Ref.ID)
+				}
+			}
+		}
+		eligible, err := evaluate(ctx, c, merged, docs)
 		if err != nil {
 			return x, err
 		}
-		seen := map[string]bool{}
-		if mode == Recommendation {
-			seen, err = e.Sources.Seen(ctx, owner, fresh)
-			if err != nil {
-				return x, err
-			}
-		}
-		for _, d := range fresh {
-			prior, ok := merged[d.Ref.Key()]
-			if !ok {
-				return x, Failure(503, "unexpected_hydrated_source")
-			}
-			if prior.Version != d.Version && !(d.Ref.Type == Broadcast && prior.Version == "") {
-				continue
-			}
-			// Recall text is tied to the version just validated. Pool-only rows
-			// obtain their text from the bounded DB presentation read instead.
-			if prior.Version != "" {
-				d.Text = prior.Text
-				if d.Ref.Type != Agent {
-					d.Preview = prior.Preview
-				}
-			}
-			d.Lexical = prior.Lexical
-			d.DenseScore = prior.DenseScore
-			d.Channels = prior.Channels
-			d.ExactMatch = prior.ExactMatch
-			if mode == Recommendation {
-				sources := d.RecallSources()
-				for _, name := range recallsource.Names(sources &^ recalled[d.Ref.ID]) {
-					metrics.RecallFeedTotal.WithLabelValues(name).Inc()
-				}
-				recalled[d.Ref.ID] |= sources
-			}
-			if seen[d.Ref.Key()] {
-				exhausted = true
-				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), "seen").Inc()
-				continue
-			}
-			if reason := Check(c, d, mode, now); reason != "" {
-				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), reason).Inc()
-				continue
-			}
-			d.Text = ""
-			score := ScoreRules(c, d, e.Rules[d.Ref.Type][mode], now)
-			if mode == Recommendation && d.RecallSources().Has(recallsource.Friend) {
-				score.Eligible = true
-				score.Features["friend_relevance_bypass"] = 1
-				score.Version += ":friend_feed_v1"
-			}
-			if !score.Eligible {
-				below = true
-				metrics.DiscoveryRejected.WithLabelValues(string(d.Ref.Type), "below_threshold").Inc()
-			}
-			if score.Eligible {
-				candidates = append(candidates, Candidate{FinalScore: score.Value, Context: c, Document: d, Score: score})
-			}
-		}
+		candidates = append(candidates, eligible...)
 	}
 	if !anySuccess && len(results) > 0 {
 		return x, Failure(503, "retrieval_unavailable")
 	}
+	selectCandidates := func(in []Candidate) ([]Candidate, error) {
+		if len(in) == 0 {
+			return []Candidate{}, nil
+		}
+		in = append([]Candidate(nil), in...)
+		e.rankLearned(in, mode)
+		if e.Policies != nil {
+			var err error
+			in, err = e.Policies(ctx, in, mode, resultLimit)
+			if err != nil {
+				return nil, err
+			}
+		}
+		mergeLimit := resultLimit
+		if mode == Recommendation && len(x.SourceLimits) > 0 {
+			mergeLimit = MaxSnapshotCandidates
+		}
+		out := Merge(in, r.SourceKinds, mode, mergeLimit)
+		if mode == Recommendation && !r.Prefetch {
+			out, _ = SelectRecommendationPage(out, resultLimit, x.SourceLimits)
+		}
+		return out, nil
+	}
+	x.Candidates, err = selectCandidates(candidates)
+	if err != nil {
+		return x, err
+	}
+	short := len(x.Candidates) < resultLimit
+	if mode == Recommendation && r.Prefetch {
+		page, _ := SelectRecommendationPage(x.Candidates, r.Limit, x.SourceLimits)
+		short = short || len(page) < r.Limit
+	}
+	if mode == Recommendation && consumedRefillEnabled(owner, e.ConsumedRefillBPS) && short {
+		additional, report, reasons, err := e.refill(ctx, owner, states, seenHeadGroups, now, evaluate)
+		if err != nil {
+			return x, err
+		}
+		x.Refill = report
+		x.PartialReasons = append(x.PartialReasons, reasons...)
+		if len(additional) > 0 {
+			// Refill can add lexical evidence to a pool-only row. Replace that
+			// context/item, retaining every other original eligible candidate.
+			keys := map[string]bool{}
+			key := func(c Candidate) string { return fmt.Sprintf("%d:%s", c.Context.ID, c.Document.Ref.Key()) }
+			for _, c := range additional {
+				keys[key(c)] = true
+			}
+			combined := append([]Candidate(nil), additional...)
+			for _, c := range candidates {
+				if !keys[key(c)] {
+					combined = append(combined, c)
+				}
+			}
+			x.Candidates, err = selectCandidates(combined)
+			if err != nil {
+				return x, err
+			}
+		}
+	}
 	x.PartialReasons = unique(x.PartialReasons)
-	if len(candidates) == 0 {
+	if len(x.Candidates) == 0 {
 		x.Status = "no_match"
 		if exhausted {
 			x.Status = "exhausted"
@@ -551,22 +635,10 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 		if below {
 			x.Status = "below_threshold"
 		}
-		return x, nil
-	}
-	e.rankLearned(candidates, mode)
-	if e.Policies != nil {
-		candidates, err = e.Policies(ctx, candidates, mode, resultLimit)
-		if err != nil {
-			return x, err
+		if len(candidates) > 0 {
+			x.Status = "exhausted"
 		}
-	}
-	mergeLimit := resultLimit
-	if mode == Recommendation && len(x.SourceLimits) > 0 {
-		mergeLimit = MaxSnapshotCandidates
-	}
-	x.Candidates = Merge(candidates, r.SourceKinds, mode, mergeLimit)
-	if mode == Recommendation && !r.Prefetch {
-		x.Candidates, _ = SelectRecommendationPage(x.Candidates, resultLimit, x.SourceLimits)
+		return x, nil
 	}
 	groupResultPages(x.Candidates, r.SourceKinds, r.Limit)
 	x.Status = "ok"

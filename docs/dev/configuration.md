@@ -232,3 +232,10 @@ recommendations use `DISCOVERY_LR_MODEL_PATH` (default
 `/data/models/eigenflux/discovery-lr/current/model.json`) with
 `DISCOVERY_LR_RELOAD_INTERVAL=60s`. These settings are independent of the legacy
 LR ranker. See [the discovery contract and rollout](discovery.md#broadcast-discovery-lr).
+
+`DISCOVERY_CONSUMED_REFILL_BPS` defaults to `0` and accepts 0–10000. It controls
+stable Agent buckets for one bounded consumed-candidate refill in broadcast
+recommendations. Search, relevance thresholds, ranking and source ceilings are
+unchanged. Restart Sort after changing the value; existing frozen Feed responses
+retain their snapshot. See [bounded refill](discovery.md#bounded-consumed-candidate-refill)
+for bounds, Redis 7 requirements and partial-result semantics.

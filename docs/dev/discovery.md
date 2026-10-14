@@ -805,3 +805,38 @@ For model rollback, run `MODEL_ROOT=/data/models/eigenflux/discovery-lr
 scripts/cloud/install_lr_model.sh --rollback` as the installer user (on one
 shell line). Disabling `DISCOVERY_LR_ENABLED` and restarting Sort restores rule
 ordering. Keep the legacy model directory intact for a pipeline rollback.
+
+### Bounded consumed-candidate refill
+
+`DISCOVERY_CONSUMED_REFILL_BPS=0` disables refill (default). Values 1–10000
+select a stable, nested hash bucket of Agent IDs; 10000 selects all Agents.
+Restart Sort to apply a changed value. Search is unaffected. Existing frozen
+Feed pages and idempotent responses retain their snapshot until refresh/expiry
+(up to 30 minutes for legacy page state).
+
+For an enabled recommendation with insufficient eligible snapshot candidates or
+an underfilled first page after source limits, Sort makes at most one extra
+lexical recall per verified broadcast Need/Profile context (80 rows each, at
+most 10 contexts, six concurrent requests). It excludes the original lexical
+IDs and confirmed consumed groups before the ES cutoff. Candidate validation,
+source-version checks, rolling consumption checks, relevance/score thresholds,
+LR ranking, rerank policies, Need precedence and source limits remain in force.
+No recency window or date sort is introduced.
+
+Consumption-history enumeration is atomically capped at 65,536 personal-set
+members. At most 8,192 numerically newest groups are verified against the same
+30 daily buckets used by delivery dedup. The refreshed personal-set TTL alone
+never authorizes an exclusion. Groups rejected as consumed in the current
+request take priority within the exclusion budget. Redis 7 `EVAL_RO` scripts
+perform reads only; membership verification sends each group once and removes
+matches progressively in blocks of 512. History, recall and validation share a 750 ms context budget; final ranking
+retains the parent deadline. The wave adds no retry loop or consumption writes.
+Existing client retries remain subject to the deadline. It is bounded recovery,
+not exhaustive retrieval.
+
+Truncation and optional history, recall or validation failures appear in
+`partial_reasons` and `discovery_consumed_refill_total{outcome=...}`. Failed
+additional candidates cannot bypass authority checks; existing validated
+candidates remain available. Parent cancellation still fails the request.
+`discovery_rejected_total{reason="source_version"}` separately records stale
+recall/forward mismatches. Fixing those projections is outside this switch.
