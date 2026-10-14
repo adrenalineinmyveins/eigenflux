@@ -5,6 +5,76 @@ historical counts from a paired, current-context supply-exhaustion replay.
 The experiment switch defaults to zero. No production delivery, feedback,
 configuration, or application code was changed for this investigation.
 
+## Results and decision
+
+**All 225 Agents completed both 24-request arms.** All 225 A/A checks match;
+no duplicate or initially consumed delivery was accepted. Capture ran from
+2026-10-14 18:35:47 to 19:08:41 (UTC+8). Results and the input manifest
+are in [fixed-225-summary.json](fixed-225-summary.json); the
+[225-row CSV](fixed-225-effects.csv) includes each Agent's delivery mix, age,
+positive sensitivities and coverage status under a stable pseudonym.
+
+**Only 187/225 paired results have complete candidate coverage.** All 38 censored
+treatment arms have `history_prefix_changed`: advancing consumption changes the
+bounded 8,192-group prefix, so an initially excluded group can re-enter the actual
+ES query. Its previously hidden candidates were not captured. This is a replay
+coverage limit, not 38 failed requests or zero outcomes. No arm exhausted the
+640-row captured refill depth. Correcting this requires capturing the changing
+query for these 38 Agents; the missing outcomes must not be invented.
+
+For the **187 complete pairs**, delivered items rise from 6,226
+to 88,684 (33.29 to 474.25 per Agent over 24 requests).
+Zero-delivery Agents fall from 43 to 0. After refill, 51.48% of delivered
+content is older than 30 days. Friend deliveries change from 672 to 11. These
+results establish available inventory and a material composition shift; they do
+not establish higher user utility.
+
+The table below retains **all 225 Agents**, including the 38 censored estimates.
+It is a frozen-supply scenario, **not a validated daily effect forecast**:
+
+| Metric, 24 requests per Agent | Switch off | Switch on |
+|---|---:|---:|
+| Delivered items | 6,411 | 101,853 |
+| Delivered per Agent | 28.49 | 452.68 |
+| PGC share | 53.94% | 47.60% |
+| UGC share | 46.06% | 52.40% |
+| Need share | 10.05% | 22.80% |
+| Profile share | 78.33% | 77.15% |
+| Friend share | 11.62% | 0.05% |
+| Content <= 7 days | 32.37% | 15.90% |
+| Content > 30 days | 48.92% | 52.81% |
+| Zero-delivery Agents | 65 | 0 |
+| Empty requests (of 5,400) | 4,958 | 228 |
+
+All 225 scenario delivery counts increase; 67 Agents receive fewer friend
+items. Unchanged ranking and source ceilings do **not** imply unchanged delivery
+composition: extra semantic candidates compete for the same slots. In the full
+scenario, 72.3% of delivered PGC and 35.1% of UGC are older than 30 days.
+Age alone does not make a match useless, but its current utility needs evidence.
+
+Under the two **uncalibrated positive-event assumptions**, per-Agent totals over
+these 24 requests are 6.63 → 108.81
+(source only) and 7.27 → 118.43 (source plus age).
+These are separate sensitivities, **not a confidence interval, observed good
+ratings or a daily uplift estimate**. They mainly scale historical event rates
+with much larger volume and do not condition on the changed Need/Profile/Friend
+mix. The per-Agent CSV preserves both estimates without turning them into a
+release pass.
+
+The captured lexical heads contain 65,548 candidate/context rows: 49,090 (74.89%)
+are already consumed after the version check; 6,787 (10.35%) fail source-version
+consistency; 12 lack source hydration; 9,659 remain before other gates. There are
+98 observed ES/forward group disagreements. Other-channel merging, duplicate
+contexts, constraints, relevance, ranking and quotas apply afterward. Engine
+rejection counters are reported separately, not added to this lexical-only
+partition as if they formed one unique-item funnel.
+
+**Decision: retain draft and leave the bucket at zero.** The starvation mechanism
+and functional repair are verified. Before activation, close the 38 changing-prefix
+coverage gaps, validate group-projection consistency, and establish a supported
+utility evaluation that explicitly reviews older inventory and friend displacement.
+Do not restore date sorting or change thresholds to make this table look better.
+
 ## Demonstrated failure and minimum repair
 
 The fixed cohort comprises 225 external Agents with valid feedback on at least
@@ -63,6 +133,9 @@ The private fixed-cohort capture includes all 225 current Agent contexts,
 including Agents with no October 13 delivery sample. Inputs include actual ES
 scores and content fingerprints, live forward features, source/author authority,
 rolling consumption state, deployed score rules, LR model and rerank policy.
+The serving commit was `455be4406636515015de70a80ad9a3847ae008ea`; the relevant
+Discovery, LR, policy, consumption and Feed-delivery files match the PR base
+`350fe8da` before this patch.
 Shared forward projections and injection claims can be frozen on their first
 observation in the capture process; owner-specific visibility and consumption
 remain separate reads. Read-through feature repairs write only to isolated local Redis. Capture is a

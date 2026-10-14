@@ -42,8 +42,8 @@ class FullCohortReportTest(unittest.TestCase):
                 hashes.append(hashlib.sha256(raw).hexdigest())
                 steps = [{'Step': n, 'Delivered': [], 'Refill': None,
                           'PartialReasons': [], 'Rejections': {}} for n in range(1, 25)]
-                before = {'Steps': steps, 'PoolIncomplete': False, 'Rejections': {}}
-                after = dict(before, PoolIncomplete=aid == 2)
+                before = {'Steps': steps, 'PoolIncomplete': False, 'PoolIncompleteReasons': None, 'Rejections': {}}
+                after = dict(before, PoolIncomplete=aid == 2, PoolIncompleteReasons=['capture_depth'] if aid == 2 else None)
                 (root / f'refill-comparison-{aid}.json').write_text(json.dumps(
                     {'Owner': aid, 'Before': before, 'After': after}))
             manifest = {'aa_equal': 225, 'input_sha256': {
@@ -61,6 +61,7 @@ class FullCohortReportTest(unittest.TestCase):
             summary = json.loads((root / 'report/fixed-225-summary.json').read_text())
             self.assertEqual(summary['totals']['after']['zero_delivery_agents'], 225)
             self.assertEqual(summary['uncensored_agents'], 224)
+            self.assertEqual(summary['censored_agent_reasons']['after']['capture_depth'], 1)
             self.assertEqual(summary['totals']['after']['censored_agents'], 1)
             (root / 'refill-agent-1.json').write_bytes(raw + b'\n')
             result = subprocess.run(command, capture_output=True, text=True)

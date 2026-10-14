@@ -62,6 +62,7 @@ def main():
     rejections = {a: collections.Counter() for a in totals}
     first_rejections = {a: collections.Counter() for a in totals}
     lexical_head = collections.Counter()
+    censor_reasons = {a: collections.Counter() for a in totals}
     captures, capture_ends, hashes = [], [], []
     for c in cohort:
         aid = str(c["AgentID"])
@@ -126,6 +127,7 @@ def main():
                     basis = {"agent_context": "profile", "need_input": "need"}.get(candidate["context"]["input_origin"], candidate["context"]["input_origin"])
                     counts["delivered"] += 1
                     counts[lane] += 1
+                    counts[f"{lane}_{age}"] += 1
                     counts[basis] += 1
                     counts[age] += 1
                     counts["age_sum_days"] += days
@@ -141,6 +143,9 @@ def main():
             counts["expected_positive_events_source"] = source
             counts["expected_positive_events_source_age"] = age
             counts["censored_agents"] = int(data["PoolIncomplete"])
+            reasons = data.get("PoolIncompleteReasons") or []
+            row[f"{arm}_censor_reasons"] = ";".join(reasons)
+            censor_reasons[arm].update(reasons)
             counts["zero_delivery_agents"] = int(counts["delivered"] == 0)
             rejections[arm].update(data["Rejections"])
             first_rejections[arm].update(data["Steps"][0]["Rejections"])
@@ -166,6 +171,7 @@ def main():
         "snapshots_sha256": snapshot_digest,
         "totals": totals, "by_step": by_step, "rejections": rejections,
         "uncensored_agents": uncensored_agents, "uncensored_totals": uncensored_totals,
+        "censored_agent_reasons": censor_reasons,
         "coverage_limit": "All 225 Agents remain in the primary report. Any censored arm is an unvalidated scenario estimate; inspect the separately reported complete pairs and do not use aggregate fill gains to waive the missing coverage.",
         "first_request_rejections": first_rejections, "initial_lexical_head": lexical_head,
         "stage_count_semantics": "Initial lexical counts are candidate/context rows before other-channel merge; first-request Engine rejection events include all channels and context duplication. They are diagnostic counts, not one additive unique-item funnel.",

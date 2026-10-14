@@ -22,11 +22,12 @@ type sequentialSource struct {
 	consumed       map[int64]bool
 	deliveredItems map[int64]bool
 	poolIncomplete bool
+	poolReasons    map[string]bool
 	mu             sync.Mutex
 }
 
 func newSequentialSource(s *refillSnapshot) *sequentialSource {
-	f := &sequentialSource{snap: s, inventory: map[string]discovery.Document{}, consumed: map[int64]bool{}, deliveredItems: map[int64]bool{}}
+	f := &sequentialSource{snap: s, inventory: map[string]discovery.Document{}, consumed: map[int64]bool{}, deliveredItems: map[int64]bool{}, poolReasons: map[string]bool{}}
 	for _, d := range restoreDocs(s.Inventory) {
 		f.inventory[d.Ref.Key()] = d
 	}
@@ -113,9 +114,12 @@ func (s *sequentialSource) RecallUnseen(_ context.Context, c discovery.Context, 
 		items[id] = true
 	}
 	incomplete := false
+	reasons := []string{}
 	for _, id := range s.snap.Confirmed {
 		if !excluded[id] {
 			incomplete = true
+			reasons = append(reasons, "history_prefix_changed")
+			break
 		}
 	}
 	out := []discovery.Document{}
@@ -129,10 +133,14 @@ func (s *sequentialSource) RecallUnseen(_ context.Context, c discovery.Context, 
 	}
 	if len(out) < limit && s.snap.Truncated[c.ID] {
 		incomplete = true
+		reasons = append(reasons, "capture_depth")
 	}
 	if incomplete {
 		s.mu.Lock()
 		s.poolIncomplete = true
+		for _, reason := range reasons {
+			s.poolReasons[reason] = true
+		}
 		s.mu.Unlock()
 	}
 	return out, nil
@@ -178,9 +186,10 @@ type refillStep struct {
 	PartialReasons []string
 }
 type refillArm struct {
-	Steps          []refillStep
-	PoolIncomplete bool
-	Rejections     map[string]float64
+	Steps                 []refillStep
+	PoolIncomplete        bool
+	PoolIncompleteReasons []string
+	Rejections            map[string]float64
 }
 type refillComparison struct {
 	Owner         int64
@@ -273,6 +282,11 @@ func replayRefill(cfg *config.Config, dir string) {
 					arm = &comparisons[i].After
 				}
 				arm.PoolIncomplete = sources[i].poolIncomplete
+				arm.PoolIncompleteReasons = nil
+				for reason := range sources[i].poolReasons {
+					arm.PoolIncompleteReasons = append(arm.PoolIncompleteReasons, reason)
+				}
+				sort.Strings(arm.PoolIncompleteReasons)
 				if arm.Rejections == nil {
 					arm.Rejections = map[string]float64{}
 				}

@@ -417,8 +417,13 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 	recalled := map[int64]recallsource.Source{}
 	anySuccess := false
 	below, exhausted := false, false
-	states := make([]refillContext, len(contexts))
-	seenHeadGroups := map[int64]bool{}
+	refillOn := mode == Recommendation && consumedRefillEnabled(owner, e.ConsumedRefillBPS)
+	var states []refillContext
+	var seenHeadGroups map[int64]bool
+	if refillOn {
+		states = make([]refillContext, len(contexts))
+		seenHeadGroups = map[int64]bool{}
+	}
 	evaluate := func(evalCtx context.Context, c Context, merged map[string]Document, docs []Document) ([]Candidate, error) {
 		eligible := []Candidate{}
 		fresh, err := e.Sources.Hydrate(evalCtx, owner, mode, docs)
@@ -461,7 +466,7 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 				recalled[d.Ref.ID] |= sources
 			}
 			if seen[d.Ref.Key()] {
-				if d.Ref.Type == Broadcast && d.GroupID > 0 {
+				if refillOn && d.Ref.Type == Broadcast && d.GroupID > 0 {
 					seenHeadGroups[d.GroupID] = true
 				}
 				exhausted = true
@@ -550,11 +555,13 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 		for _, key := range order {
 			docs = append(docs, merged[key])
 		}
-		states[ci] = refillContext{context: c, documents: merged}
-		for _, res := range results {
-			if res.ci == ci && res.kind == Broadcast && res.channel == "lexical" && res.err == nil {
-				for _, d := range res.docs {
-					states[ci].lexicalIDs = append(states[ci].lexicalIDs, d.Ref.ID)
+		if refillOn {
+			states[ci] = refillContext{context: c, documents: merged}
+			for _, res := range results {
+				if res.ci == ci && res.kind == Broadcast && res.channel == "lexical" && res.err == nil {
+					for _, d := range res.docs {
+						states[ci].lexicalIDs = append(states[ci].lexicalIDs, d.Ref.ID)
+					}
 				}
 			}
 		}
@@ -602,7 +609,7 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 		}
 		return short
 	}
-	if mode == Recommendation && consumedRefillEnabled(owner, e.ConsumedRefillBPS) && underfilled() {
+	if refillOn && underfilled() {
 		additional, report, reasons, err := e.refill(ctx, owner, states, seenHeadGroups, now, evaluate)
 		if err != nil {
 			return x, err
