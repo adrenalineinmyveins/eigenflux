@@ -7,73 +7,109 @@ configuration, or application code was changed for this investigation.
 
 ## Results and decision
 
-**All 225 Agents completed both 24-request arms.** All 225 A/A checks match;
-no duplicate or initially consumed delivery was accepted. Capture ran from
-2026-10-14 18:35:47 to 19:08:41 (UTC+8). Results and the input manifest
-are in [fixed-225-summary.json](fixed-225-summary.json); the
-[225-row CSV](fixed-225-effects.csv) includes each Agent's delivery mix, age,
-positive sensitivities and coverage status under a stable pseudonym.
+**Use empty-page recovery only; keep the PR draft and the bucket at zero.**
+A nonempty current page, even a partial page, retains the original snapshot and
+never calls optional history/refill dependencies. An undersized 200-row prefetch
+pool alone does not trigger recovery. Within a recovery wave, existing Need
+precedence, LR/rerank, deduplication and source ceilings still apply.
+
+All 225 Agents completed both 24-request arms, all 225 A/A checks match, and no
+duplicate or initially consumed delivery was accepted. Capture ran from
+2026-10-14 18:35:47 to 19:08:41 (UTC+8). The final code was replayed against these
+same frozen inputs. Results and hashes are in
+[fixed-225-summary.json](fixed-225-summary.json); the
+[225-row CSV](fixed-225-effects.csv) preserves silent Agents, per-Agent delivery
+mix, age, positive sensitivities, item retention and coverage status.
 
 **Only 187/225 paired results have complete candidate coverage.** All 38 censored
 treatment arms have `history_prefix_changed`: advancing consumption changes the
 bounded 8,192-group prefix, so an initially excluded group can re-enter the actual
 ES query. Its previously hidden candidates were not captured. This is a replay
 coverage limit, not 38 failed requests or zero outcomes. No arm exhausted the
-640-row captured refill depth. Correcting this requires capturing the changing
-query for these 38 Agents; the missing outcomes must not be invented.
+640-row captured refill depth. Missing outcomes must not be invented or counted
+as a release pass.
 
-For the **187 complete pairs**, delivered items rise from 6,226
-to 88,684 (33.29 to 474.25 per Agent over 24 requests).
-Zero-delivery Agents fall from 43 to 0. After refill, 51.48% of delivered
-content is older than 30 days. Friend deliveries change from 672 to 11. These
-results establish available inventory and a material composition shift; they do
-not establish higher user utility.
+For the **187 complete pairs**, over 24 requests per Agent:
 
-The table below retains **all 225 Agents**, including the 38 censored estimates.
-It is a frozen-supply scenario, **not a validated daily effect forecast**:
-
-| Metric, 24 requests per Agent | Switch off | Switch on |
+| Metric | Off | Empty-page recovery |
 |---|---:|---:|
-| Delivered items | 6,411 | 101,853 |
-| Delivered per Agent | 28.49 | 452.68 |
-| PGC share | 53.94% | 47.60% |
-| UGC share | 46.06% | 52.40% |
-| Need share | 10.05% | 22.80% |
-| Profile share | 78.33% | 77.15% |
-| Friend share | 11.62% | 0.05% |
-| Content <= 7 days | 32.37% | 15.90% |
-| Content > 30 days | 48.92% | 52.81% |
-| Zero-delivery Agents | 65 | 0 |
-| Empty requests (of 5,400) | 4,958 | 228 |
+| Delivered items | 6,226 | 86,598 |
+| Original delivered items retained | 6,226 | 6,226 |
+| Items with friend-source provenance | 673 | 673 |
+| Winning Friend-context deliveries | 672 | 672 |
+| Zero-delivery Agents | 43 | 0 |
+| Empty requests (of 4,488) | 4,069 | 2 |
+| PGC / UGC share | 54.42% / 45.58% | 45.60% / 54.40% |
+| Need / Profile share | 10.31% / 78.89% | 25.46% / 73.76% |
+| Content > 30 days | 49.86% | 51.03% |
 
-All 225 scenario delivery counts increase; 67 Agents receive fewer friend
-items. Unchanged ranking and source ceilings do **not** imply unchanged delivery
-composition: extra semantic candidates compete for the same slots. In the full
-scenario, 72.3% of delivered PGC and 35.1% of UGC are older than 30 days.
-Age alone does not make a match useless, but its current utility needs evidence.
+This establishes inventory recovery without losing baseline deliveries in this
+scenario. It does **not** establish higher user utility or a calendar-day uplift.
+Friend-source provenance is unioned across contexts; a winning Need/Profile
+context does not erase that provenance. Both measures are reported explicitly.
+Retention compares actual item identities within each Agent, not context labels.
 
-Under the two **uncalibrated positive-event assumptions**, per-Agent totals over
-these 24 requests are 6.63 → 108.81
-(source only) and 7.27 → 118.43 (source plus age).
-These are separate sensitivities, **not a confidence interval, observed good
-ratings or a daily uplift estimate**. They mainly scale historical event rates
-with much larger volume and do not condition on the changed Need/Profile/Friend
-mix. The per-Agent CSV preserves both estimates without turning them into a
-release pass.
+### Why the trigger is restricted to empty pages
+
+The same inputs were used to compare three triggers. All variants have the same
+187 complete pairs and 38 censored pairs. The table uses only complete pairs:
+
+| Recovery trigger | Delivered items | Original items retained (of 6,226) | Original friend items retained (of 673) |
+|---|---:|---:|---:|
+| Prefetch pool < 200 or current page < 20 | 88,684 | 1,409 | 15 |
+| Current page < 20 | 88,684 | 5,315 | 148 |
+| **Current page empty** | **86,598** | **6,226** | **673** |
+
+The broad trigger adds Need/Profile candidates and reranks them with the original
+pool. The existing cross-context merge prioritizes Need and context order; later
+friend candidates can lose their slots or fall outside the 200-row snapshot.
+Even restricting refill to partial pages still displaces existing deliveries.
+Empty-page recovery preserves baseline content while retaining 97.65% of the
+broad variant's delivered volume in the complete-pair scenario. This avoids adding
+a new friend floor, pinning policy, recency window or relaxed relevance threshold.
+The tradeoff is explicit: partial pages stay partial until a later empty refresh.
+
+[trigger-comparison.json](trigger-comparison.json) contains all three variants,
+the shared snapshot digest, complete-pair counts and all-225 scenario counts.
+For all 225 (including censored arms), empty-page recovery delivers 99,663 items
+versus 6,411, retaining all 6,411 baseline items and all 746 baseline friend-source
+items; those aggregate treatment figures remain partly unvalidated. Original
+broad refill retained only 1,558 baseline items and 58 friend-source items.
+
+For all 225 scenario estimates, historical-rate positive-event sensitivities per
+Agent over 24 requests are 6.63 -> 106.76 (source only) and 7.27 -> 116.28 (source
+plus age). These are separate assumptions, **not a confidence interval, observed
+good ratings or a daily uplift estimate**. They mainly scale historical rates
+with volume and do not condition on the changed Need/Profile/Friend mix.
+Age alone does not make a match useless; the usefulness of recovered older and
+potentially time-sensitive inventory needs direct evidence.
 
 The captured lexical heads contain 65,548 candidate/context rows: 49,090 (74.89%)
 are already consumed after the version check; 6,787 (10.35%) fail source-version
 consistency; 12 lack source hydration; 9,659 remain before other gates. There are
 98 observed ES/forward group disagreements. Other-channel merging, duplicate
 contexts, constraints, relevance, ranking and quotas apply afterward. Engine
-rejection counters are reported separately, not added to this lexical-only
-partition as if they formed one unique-item funnel.
+rejection counters are separate; do not add them to this lexical-only partition
+as if they formed one unique-item funnel.
 
-**Decision: retain draft and leave the bucket at zero.** The starvation mechanism
-and functional repair are verified. Before activation, close the 38 changing-prefix
-coverage gaps, validate group-projection consistency, and establish a supported
-utility evaluation that explicitly reviews older inventory and friend displacement.
-Do not restore date sorting or change thresholds to make this table look better.
+### Remaining acceptance work
+
+1. Close the 38 changing-prefix gaps with capture that covers the actual exclusion
+   sets as consumption advances. Freeze source/query facts for both arms; do not
+   stitch current ES answers into old snapshots and call them identical inputs.
+   Either capture the exact per-step queries against a stable search snapshot,
+   or capture a provable superset with explicit depth bounds. Rerun all 225;
+   report any remaining incompleteness rather than dropping those Agents.
+2. Verify ES/group projection consistency and review the recovered inventory for
+   relevance, expired time-sensitive claims and duplicate value. Report age by
+   source and Need/Profile; do not delete useful evergreen content just to lower
+   the age average. Historical-rate projections alone cannot pass quality.
+3. Complete full-request concurrency/cost checks, review the offline evidence,
+   and only then approve a stable small Agent canary with a retained control.
+   Observe fixed-cohort daily positives and harm guardrails before expansion.
+
+No merge or activation is approved by these results. Restoring date-sorted recall
+or lowering thresholds would be a separate recommendation policy change.
 
 ## Demonstrated failure and minimum repair
 
@@ -105,8 +141,8 @@ have no dense vector. Pool-only hot/new/Swing rows cannot independently pass the
 unchanged semantic relevance gate. Version mismatches cause additional losses;
 the rollback has not been shown to cause those mismatches.
 
-The patch retains the initial candidates and adds at most one lexical refill
-wave when the post-policy snapshot or capped first page is underfilled. It
+The patch retains every nonempty original result and adds at most one lexical
+refill wave when the current page is empty after policy and source ceilings. It
 excludes verified consumed groups and the original lexical IDs before top-k,
 then applies the same hydration, content version, consumption, authority,
 constraint, relevance, LR, rerank, merge and source-ceiling checks. No date-sorted
@@ -173,13 +209,14 @@ invented as negatives. Missing historical support is an explicit report error.
 - Full core build passed on macOS arm64, Go 1.26.5. The repository build reports
   that optional Swagger regeneration is unavailable because `swag` is absent.
 - Targeted race tests pass for Discovery, Feed delivery, configuration and the
-  fidelity replay. Five Python report tests pass, including zero-Agent retention,
+  fidelity replay. Six Python report tests pass, including zero-Agent retention,
   censored-pair reporting and rejection of inputs changed after replay.
 - The actual HTTP/API/Feed/Sort regression passes with PostgreSQL 16, Redis 7,
   Elasticsearch 8.11 and etcd in isolated local fixtures.
 - Additional tests cover default-off behavior, sequential depletion, history and
   recall outages, hard filters, stable bucket assignment, rolling authority,
-  history bounds, capped prefetch refill and preserved Need attribution.
+  history bounds, unchanged nonempty/partial/capped pages, and preserved Need
+  attribution when recovering an empty page.
 - The capture bridge is tested against serving fingerprints (Unicode and 64-bit
   IDs) and rolling consumption semantics (owner, day boundary and chunking).
 

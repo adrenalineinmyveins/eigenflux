@@ -1,7 +1,16 @@
 import unittest
-from refill_report import rates, expected, age_bucket
+from refill_report import rates, expected, age_bucket, delivered_identities
 
 class RefillReportTest(unittest.TestCase):
+    def test_friend_provenance_survives_context_reattribution(self):
+        data = {"Steps": [{"Delivered": [{
+            "context": {"input_origin": "need_input"},
+            "document": {"source_ref": {"type": "broadcast", "id": "10"},
+                         "channels": ["lexical", "friend"]}}]}]}
+        items, friends = delivered_identities(data)
+        self.assertEqual(items, {("broadcast", "10")})
+        self.assertEqual(friends, items)
+
     def test_missing_exposure_support_is_not_zero_quality(self):
         with self.assertRaises(ValueError):
             expected('1', {('ugc','over30'): 2}, rates([]))

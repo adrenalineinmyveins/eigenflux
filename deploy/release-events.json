@@ -6,8 +6,8 @@
     "dashboards": [
       "recommendation-effect"
     ],
-    "title": "Bounded consumed-candidate refill available",
-    "description": "Default off; only enabled Agent buckets can receive additional matching candidates. Deployment does not itself activate refill. Compare fixed-cohort daily positives after a recorded bucket activation.",
+    "title": "Empty-page consumed-candidate recovery available",
+    "description": "Default off; enabled Agent buckets can recover matching candidates only when the current recommendation page is empty. Nonempty pages keep their original candidates. Deployment does not activate recovery. Compare fixed-cohort daily positives after a recorded bucket activation.",
     "pr": "https://github.com/phronesis-io/eigenflux/pull/415"
   }
 ]

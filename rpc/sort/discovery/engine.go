@@ -601,15 +601,16 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 	if err != nil {
 		return x, err
 	}
-	underfilled := func() bool {
-		short := len(x.Candidates) < resultLimit
+	pageSize := func() int {
 		if mode == Recommendation && r.Prefetch {
 			page, _ := SelectRecommendationPage(x.Candidates, r.Limit, x.SourceLimits)
-			short = short || len(page) < r.Limit
+			return len(page)
 		}
-		return short
+		return len(x.Candidates)
 	}
-	if refillOn && underfilled() {
+	// Recover an empty page only. Filling a short snapshot or partial page
+	// would let new Need/Profile matches displace already deliverable content.
+	if refillOn && pageSize() == 0 {
 		additional, report, reasons, err := e.refill(ctx, owner, states, seenHeadGroups, now, evaluate)
 		if err != nil {
 			return x, err
@@ -635,7 +636,7 @@ func (e *Engine) Execute(ctx context.Context, owner int64, r Request, mode Mode,
 				return x, err
 			}
 		}
-		if report != nil && report.LimitReached && underfilled() {
+		if report != nil && report.LimitReached && pageSize() < r.Limit {
 			x.PartialReasons = append(x.PartialReasons, "consumed_refill:scan_budget")
 			metrics.DiscoveryRefill.WithLabelValues("scan_budget").Inc()
 		}

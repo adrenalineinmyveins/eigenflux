@@ -107,7 +107,7 @@ func TestConsumedRefillSequentialAndSwitch(t *testing.T) {
 	}
 }
 
-func TestConsumedRefillPrefetchBackfillsCappedPageAndKeepsNeedPriority(t *testing.T) {
+func TestConsumedRefillPreservesCappedPageAndRecoversEmptyWithNeedPriority(t *testing.T) {
 	e, s := refillFixture()
 	e.SourceLimits = []SourceLimit{{Source: "friend", Numerator: 1, Denominator: 2}}
 	e.frozenContexts = []Context{
@@ -139,6 +139,14 @@ func TestConsumedRefillPrefetchBackfillsCappedPageAndKeepsNeedPriority(t *testin
 	}
 	e.ConsumedRefillBPS = 10000
 	after, page := run()
+	if !reflect.DeepEqual(before, after) || len(page) != 10 || s.historyCalls != 0 || s.refillCalls != 0 {
+		t.Fatal("refill changed a nonempty source-capped page")
+	}
+	for _, d := range s.channels["friend"] {
+		s.seen[d.Ref.Key()] = true
+		s.groups = append(s.groups, d.GroupID)
+	}
+	after, page = run()
 	if len(page) != 20 || after.Refill == nil || after.Refill.Contexts != 2 || s.refillCalls != 2 {
 		t.Fatalf("capped first page not refilled once per eligible context: %+v", after.Refill)
 	}
@@ -154,11 +162,41 @@ func TestConsumedRefillPrefetchBackfillsCappedPageAndKeepsNeedPriority(t *testin
 		t.Fatal("refill bypassed the per-Agent friend source cap")
 	}
 }
-func TestConsumedRefillKeepsGatesAndBaselineOnFailure(t *testing.T) {
-	for _, mode := range []string{"history", "recall", "gates", "complete"} {
+func TestConsumedRefillPreservesEveryNonemptyPage(t *testing.T) {
+	for _, prefetch := range []bool{false, true} {
+		for _, count := range []int{1, 19, 20, 21} {
+			t.Run(fmt.Sprintf("prefetch=%t/count=%d", prefetch, count), func(t *testing.T) {
+				e, s := refillFixture()
+				for id := int64(1); id <= int64(count); id++ {
+					s.docs = append(s.docs, refillDoc(id))
+				}
+				s.pool = []Document{refillDoc(100)}
+				run := func() Execution {
+					*e.IDs.(*countIDs) = 100
+					x, err := e.Execute(context.Background(), 1, Request{SourceKinds: []Kind{Broadcast}, Limit: 20, Prefetch: prefetch}, Recommendation, 1000)
+					if err != nil {
+						t.Fatal(err)
+					}
+					return x
+				}
+				e.ConsumedRefillBPS = 0
+				before := run()
+				e.ConsumedRefillBPS = 10000
+				after := run()
+				if !reflect.DeepEqual(before, after) || s.historyCalls != 0 || s.refillCalls != 0 {
+					t.Fatal("nonempty page changed or read optional dependencies")
+				}
+			})
+		}
+	}
+}
+
+func TestConsumedRefillKeepsGatesAndReportsFailure(t *testing.T) {
+	for _, mode := range []string{"history", "recall", "gates"} {
 		t.Run(mode, func(t *testing.T) {
 			e, s := refillFixture()
 			s.docs = []Document{refillDoc(1)}
+			s.seen["broadcast:1"] = true
 			s.pool = []Document{refillDoc(2), refillDoc(3), refillDoc(4), refillDoc(5)}
 			s.pool[0].Visible = false
 			s.pool[1].Lexical = 0
@@ -172,18 +210,11 @@ func TestConsumedRefillKeepsGatesAndBaselineOnFailure(t *testing.T) {
 			case "gates":
 				s.incomplete = true
 			}
-			limit := 20
-			if mode == "complete" {
-				limit = 1
+			x := runRefill(t, e, 20)
+			if len(x.Candidates) != 0 {
+				t.Fatalf("refill bypassed gates: %+v", x)
 			}
-			x := runRefill(t, e, limit)
-			if len(x.Candidates) != 1 || x.Candidates[0].Document.Ref.ID != 1 {
-				t.Fatalf("baseline/gates changed: %+v", x)
-			}
-			if mode == "complete" && s.historyCalls != 0 {
-				t.Fatal("full page must not read history")
-			}
-			if mode != "complete" && len(x.PartialReasons) == 0 {
+			if len(x.PartialReasons) == 0 {
 				t.Fatal("missing degraded outcome")
 			}
 		})

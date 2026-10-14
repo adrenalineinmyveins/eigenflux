@@ -121,8 +121,10 @@ and 750 ms optional budget stay active during replay; online dependency latency
 must be measured separately because frozen sources are local.
 
 `refill_report.py --dir <private-dir> --out <sanitized-dir>` emits anonymous
-per-Agent CSV rows, request-by-request source mix, rejection stages and two
-positive-event sensitivities. It requires `rate-history.jsonl` with fixed-window
+per-Agent CSV rows, request-by-request source mix, rejection stages, original-item
+retention, friend provenance independent of winning context, and two
+positive-event sensitivities. The enabled serving arm uses empty-page recovery;
+nonempty and partial pages keep the baseline snapshot. It requires `rate-history.jsonl` with fixed-window
 Agent/source/age delivery and positive-event counts. Both estimates use a
 20-delivery cohort prior: source-only and source-plus-age. Missing exposure
 support is an error; unlinked feedback is not classified as negative. Event lag,

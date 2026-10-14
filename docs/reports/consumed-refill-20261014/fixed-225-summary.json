@@ -21,6 +21,9 @@
   "snapshots_sha256": "c2bab089ca2d928e11b0ec4b01e6b8cc90b17ec25edead5eb665dceb5e638f4c",
   "totals": {
     "before": {
+      "friend_source": 746,
+      "retained_baseline_items": 6411,
+      "retained_baseline_friends": 746,
       "empty_requests": 4958,
       "expected_positive_events_source": 1491.5461729067924,
       "expected_positive_events_source_age": 1636.294386461709,
@@ -44,31 +47,34 @@
       "friend": 745
     },
     "after": {
-      "delivered": 101853,
-      "ugc": 53369,
-      "ugc_7to30": 23714,
-      "need": 23222,
-      "7to30": 31871,
-      "age_sum_days": 4911426.538808921,
-      "ugc_under7": 10914,
-      "under7": 16192,
-      "ugc_over30": 18741,
-      "over30": 53790,
-      "refill_requests": 5396,
-      "refill_recalled": 1561922,
-      "refill_eligible": 1049123,
-      "partial_requests": 3063,
-      "pgc": 48484,
-      "pgc_over30": 35049,
-      "pgc_under7": 5278,
-      "pgc_7to30": 8157,
-      "expected_positive_events_source": 24482.81529675479,
-      "expected_positive_events_source_age": 26646.149919428448,
+      "friend_source": 746,
+      "retained_baseline_items": 6411,
+      "retained_baseline_friends": 746,
+      "delivered": 99663,
+      "ugc": 52614,
+      "ugc_7to30": 22929,
+      "need": 22611,
+      "7to30": 30838,
+      "age_sum_days": 4774373.073834269,
+      "ugc_under7": 11395,
+      "under7": 16576,
+      "ugc_over30": 18290,
+      "over30": 52249,
+      "refill_requests": 4958,
+      "refill_recalled": 1413895,
+      "refill_eligible": 947358,
+      "pgc": 47049,
+      "pgc_over30": 33959,
+      "pgc_under7": 5181,
+      "pgc_7to30": 7909,
+      "expected_positive_events_source": 24021.9115925247,
+      "expected_positive_events_source_age": 26162.165195712703,
       "censored_agents": 38,
       "zero_delivery_agents": 0,
-      "profile": 78577,
-      "empty_requests": 228,
-      "friend": 54
+      "profile": 76307,
+      "partial_requests": 1011,
+      "empty_requests": 217,
+      "friend": 745
     }
   },
   "by_step": {
@@ -223,201 +229,204 @@
     ],
     "after": [
       {
-        "delivered": 4500,
-        "ugc": 3689,
-        "need": 1000,
-        "pgc": 811,
-        "profile": 3500
+        "delivered": 3157,
+        "ugc": 2094,
+        "need": 608,
+        "pgc": 1063,
+        "profile": 2380,
+        "friend": 169
       },
       {
-        "delivered": 4500,
-        "ugc": 3176,
-        "need": 1000,
-        "pgc": 1324,
-        "profile": 3500
+        "delivered": 4213,
+        "ugc": 2867,
+        "need": 907,
+        "pgc": 1346,
+        "profile": 3169,
+        "friend": 137
       },
       {
-        "delivered": 4500,
-        "ugc": 2798,
-        "need": 1000,
-        "pgc": 1702,
-        "profile": 3500
+        "delivered": 4334,
+        "ugc": 2749,
+        "need": 994,
+        "pgc": 1585,
+        "profile": 3259,
+        "friend": 81
       },
       {
-        "delivered": 4489,
-        "ugc": 2677,
-        "need": 1000,
-        "pgc": 1812,
-        "profile": 3489
+        "delivered": 4401,
+        "ugc": 2731,
+        "need": 969,
+        "pgc": 1670,
+        "profile": 3370,
+        "friend": 62
       },
       {
-        "delivered": 4470,
-        "ugc": 2539,
-        "need": 990,
-        "pgc": 1931,
-        "profile": 3480,
-        "empty_agents": 1
+        "delivered": 4323,
+        "ugc": 2575,
+        "need": 936,
+        "pgc": 1748,
+        "profile": 3287,
+        "empty_agents": 1,
+        "friend": 100
       },
       {
-        "delivered": 4463,
-        "ugc": 2427,
-        "need": 983,
-        "pgc": 2036,
-        "profile": 3480,
-        "empty_agents": 1
+        "delivered": 4282,
+        "ugc": 2543,
+        "need": 943,
+        "pgc": 1739,
+        "profile": 3254,
+        "empty_agents": 1,
+        "friend": 85
       },
       {
-        "delivered": 4462,
-        "ugc": 2359,
+        "delivered": 4401,
+        "ugc": 2570,
         "need": 982,
-        "pgc": 2103,
-        "profile": 3480,
-        "empty_agents": 1
+        "pgc": 1831,
+        "profile": 3389,
+        "empty_agents": 1,
+        "friend": 30
       },
       {
-        "delivered": 4462,
-        "ugc": 2168,
+        "delivered": 4430,
+        "ugc": 2416,
         "need": 982,
-        "pgc": 2294,
-        "profile": 3480,
-        "empty_agents": 1
+        "pgc": 2014,
+        "profile": 3443,
+        "empty_agents": 1,
+        "friend": 5
       },
       {
-        "delivered": 4435,
-        "ugc": 2144,
+        "delivered": 4398,
+        "ugc": 2303,
         "need": 980,
-        "pgc": 2291,
-        "profile": 3455,
-        "empty_agents": 2
-      },
-      {
-        "delivered": 4384,
-        "ugc": 2081,
-        "need": 980,
-        "pgc": 2303,
-        "profile": 3403,
-        "empty_agents": 4,
-        "friend": 1
-      },
-      {
-        "delivered": 4371,
-        "ugc": 2100,
-        "need": 979,
-        "pgc": 2271,
-        "empty_agents": 6,
-        "profile": 3392
-      },
-      {
-        "delivered": 4366,
-        "ugc": 2090,
-        "need": 977,
-        "pgc": 2276,
-        "empty_agents": 6,
+        "pgc": 2095,
         "profile": 3388,
-        "friend": 1
+        "empty_agents": 2,
+        "friend": 30
       },
       {
-        "delivered": 4340,
-        "ugc": 2023,
-        "need": 972,
-        "pgc": 2317,
+        "delivered": 4365,
+        "ugc": 2180,
+        "need": 980,
+        "pgc": 2185,
+        "profile": 3367,
+        "empty_agents": 3,
+        "friend": 18
+      },
+      {
+        "delivered": 4380,
+        "ugc": 2101,
+        "need": 979,
+        "pgc": 2279,
+        "empty_agents": 5,
+        "profile": 3382,
+        "friend": 19
+      },
+      {
+        "delivered": 4338,
+        "ugc": 2139,
+        "need": 977,
+        "pgc": 2199,
         "empty_agents": 6,
-        "profile": 3368
-      },
-      {
-        "delivered": 4286,
-        "ugc": 1983,
-        "need": 962,
-        "pgc": 2303,
-        "empty_agents": 7,
-        "profile": 3324
-      },
-      {
-        "delivered": 4203,
-        "ugc": 1967,
-        "need": 956,
-        "pgc": 2236,
-        "empty_agents": 11,
-        "profile": 3247
-      },
-      {
-        "delivered": 4155,
-        "ugc": 1979,
-        "need": 956,
-        "pgc": 2176,
-        "empty_agents": 13,
-        "profile": 3199
-      },
-      {
-        "delivered": 4102,
-        "ugc": 1939,
-        "need": 954,
-        "pgc": 2163,
-        "empty_agents": 15,
-        "profile": 3138,
-        "friend": 10
-      },
-      {
-        "delivered": 4060,
-        "ugc": 1931,
-        "need": 950,
-        "pgc": 2129,
-        "empty_agents": 16,
-        "profile": 3101,
+        "profile": 3352,
         "friend": 9
       },
       {
-        "delivered": 4007,
+        "delivered": 4346,
+        "ugc": 2108,
+        "need": 972,
+        "pgc": 2238,
+        "empty_agents": 6,
+        "profile": 3374
+      },
+      {
+        "delivered": 4298,
+        "ugc": 2003,
+        "need": 962,
+        "pgc": 2295,
+        "empty_agents": 7,
+        "profile": 3336
+      },
+      {
+        "delivered": 4218,
+        "ugc": 2001,
+        "need": 956,
+        "pgc": 2217,
+        "empty_agents": 10,
+        "profile": 3262
+      },
+      {
+        "delivered": 4170,
+        "ugc": 1939,
+        "need": 956,
+        "pgc": 2231,
+        "empty_agents": 13,
+        "profile": 3214
+      },
+      {
+        "delivered": 4122,
+        "ugc": 1946,
+        "need": 954,
+        "pgc": 2176,
+        "empty_agents": 14,
+        "profile": 3168
+      },
+      {
+        "delivered": 4078,
+        "ugc": 1955,
+        "need": 950,
+        "pgc": 2123,
+        "empty_agents": 15,
+        "profile": 3128
+      },
+      {
+        "delivered": 4022,
         "ugc": 1916,
         "need": 946,
-        "pgc": 2091,
-        "empty_agents": 18,
-        "profile": 3061
+        "pgc": 2106,
+        "empty_agents": 17,
+        "profile": 3076
       },
       {
-        "delivered": 3954,
-        "ugc": 1898,
+        "delivered": 3983,
+        "ugc": 1930,
         "need": 946,
-        "pgc": 2056,
+        "pgc": 2053,
         "empty_agents": 20,
-        "profile": 3003,
-        "friend": 5
+        "profile": 3037
       },
       {
-        "delivered": 3899,
-        "ugc": 1899,
+        "delivered": 3916,
+        "ugc": 1876,
         "need": 940,
-        "pgc": 2000,
+        "pgc": 2040,
         "empty_agents": 22,
-        "profile": 2954,
-        "friend": 5
+        "profile": 2976
       },
       {
-        "delivered": 3860,
-        "ugc": 1871,
+        "delivered": 3879,
+        "ugc": 1929,
         "need": 934,
-        "pgc": 1989,
+        "pgc": 1950,
+        "empty_agents": 22,
+        "profile": 2945
+      },
+      {
+        "delivered": 3835,
+        "ugc": 1887,
+        "need": 933,
+        "pgc": 1948,
         "empty_agents": 25,
-        "profile": 2912,
-        "friend": 14
+        "profile": 2902
       },
       {
-        "delivered": 3815,
-        "ugc": 1869,
-        "need": 931,
-        "pgc": 1946,
+        "delivered": 3774,
+        "ugc": 1856,
+        "need": 925,
+        "pgc": 1918,
         "empty_agents": 26,
-        "profile": 2878,
-        "friend": 6
-      },
-      {
-        "delivered": 3770,
-        "ugc": 1846,
-        "need": 922,
-        "pgc": 1924,
-        "empty_agents": 27,
-        "profile": 2845,
-        "friend": 3
+        "profile": 2849
       }
     ]
   },
@@ -432,18 +441,21 @@
       "unavailable_source": 63594
     },
     "after": {
-      "below_threshold": 1262497,
-      "expired": 181160,
-      "missing_text": 227,
-      "seen": 1694673,
+      "below_threshold": 1267250,
+      "expired": 180839,
+      "missing_text": 202,
+      "seen": 1799683,
       "self": 4392,
-      "source_version": 401824,
-      "unavailable_source": 181815
+      "source_version": 374524,
+      "unavailable_source": 168471
     }
   },
   "uncensored_agents": 187,
   "uncensored_totals": {
     "before": {
+      "friend_source": 673,
+      "retained_baseline_items": 6226,
+      "retained_baseline_friends": 673,
       "empty_requests": 4069,
       "expected_positive_events_source": 1425.1949919682809,
       "expected_positive_events_source_age": 1568.762698231051,
@@ -467,31 +479,34 @@
       "need": 642
     },
     "after": {
-      "delivered": 88684,
-      "ugc": 47822,
-      "ugc_7to30": 21786,
-      "need": 22645,
-      "7to30": 28591,
-      "age_sum_days": 4168236.891620845,
-      "ugc_under7": 9973,
-      "under7": 14442,
-      "ugc_over30": 16063,
-      "over30": 45651,
-      "refill_requests": 4484,
-      "refill_recalled": 1237442,
-      "refill_eligible": 934351,
-      "partial_requests": 2151,
-      "pgc": 40862,
-      "pgc_over30": 29588,
-      "pgc_under7": 4469,
-      "pgc_7to30": 6805,
-      "expected_positive_events_source": 22216.20132163647,
-      "expected_positive_events_source_age": 23838.802667350734,
+      "friend_source": 673,
+      "retained_baseline_items": 6226,
+      "retained_baseline_friends": 673,
+      "delivered": 86598,
+      "ugc": 47112,
+      "ugc_7to30": 21024,
+      "need": 22052,
+      "7to30": 27595,
+      "age_sum_days": 4038003.359456839,
+      "ugc_under7": 10436,
+      "under7": 14811,
+      "ugc_over30": 15652,
+      "over30": 44192,
+      "refill_requests": 4069,
+      "refill_recalled": 1097655,
+      "refill_eligible": 834209,
+      "pgc": 39486,
+      "pgc_over30": 28540,
+      "pgc_under7": 4375,
+      "pgc_7to30": 6571,
+      "expected_positive_events_source": 21781.09190095297,
+      "expected_positive_events_source_age": 23382.036230689635,
       "censored_agents": 0,
       "zero_delivery_agents": 0,
-      "profile": 66028,
-      "empty_requests": 3,
-      "friend": 11
+      "profile": 63874,
+      "partial_requests": 122,
+      "empty_requests": 2,
+      "friend": 672
     }
   },
   "censored_agent_reasons": {
@@ -513,12 +528,12 @@
     },
     "after": {
       "below_threshold": 57191,
-      "expired": 7542,
+      "expired": 7524,
       "missing_text": 11,
-      "seen": 59569,
+      "seen": 58927,
       "self": 183,
-      "source_version": 13031,
-      "unavailable_source": 5389
+      "source_version": 8680,
+      "unavailable_source": 3454
     }
   },
   "initial_lexical_head": {
@@ -533,6 +548,9 @@
   "agents_more": 225,
   "agents_less": 0,
   "agents_equal": 0,
+  "agents_missing_baseline_items": 0,
+  "agents_missing_baseline_friends": 0,
+  "friend_count_semantics": "friend counts winning Friend contexts; friend_source counts the unioned friend provenance independent of winning Need/Profile context. Retention compares item identities, not attribution labels, within each Agent's 24-request scenario.",
   "positive_estimate_limit": "Historical event-rate sensitivity, not calibrated probability or causal daily uplift; unmatched/delayed feedback, exposure selection and frozen supply limit validity.",
   "historical_rates": {
     "pgc:d": 251567,

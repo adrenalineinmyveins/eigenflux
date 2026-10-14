@@ -814,14 +814,18 @@ Restart Sort to apply a changed value. Search is unaffected. Existing frozen
 Feed pages and idempotent responses retain their snapshot until refresh/expiry
 (up to 30 minutes for legacy page state).
 
-For an enabled recommendation with insufficient eligible snapshot candidates or
-an underfilled first page after source limits, Sort makes at most one extra
+For an enabled recommendation whose current page is empty after source limits,
+Sort makes at most one extra
 lexical recall per verified broadcast Need/Profile context (80 rows each, at
 most 10 contexts, six concurrent requests). It excludes the original lexical
 IDs and confirmed consumed groups before the ES cutoff. Candidate validation,
 source-version checks, rolling consumption checks, relevance/score thresholds,
 LR ranking, rerank policies, Need precedence and source limits remain in force.
-No recency window or date sort is introduced.
+No recency window or date sort is introduced. A nonempty page (including a partial
+page) retains the original candidates and does not read consumption history or
+run extra searches. An underfilled 200-candidate prefetch snapshot alone never
+triggers refill. This intentionally prioritizes preserving existing deliveries
+over filling every request to its requested size.
 
 Consumption-history enumeration is atomically capped at 65,536 personal-set
 members. At most 8,192 numerically newest groups are verified against the same

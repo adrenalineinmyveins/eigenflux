@@ -12,6 +12,18 @@ def age_bucket(days):
     return "over30" if days > 30 else "7to30" if days > 7 else "under7"
 
 
+def delivered_identities(arm):
+    items, friends = set(), set()
+    for step in arm["Steps"]:
+        for candidate in step["Delivered"] or []:
+            doc = candidate["document"]
+            identity = (doc["source_ref"]["type"], str(doc["source_ref"]["id"]))
+            items.add(identity)
+            if "friend" in (doc.get("channels") or []):
+                friends.add(identity)
+    return items, friends
+
+
 def rates(history):
     by_agent, by_source, totals = {}, collections.Counter(), collections.Counter()
     for c in history:
@@ -96,11 +108,16 @@ def main():
         row = {"agent": hashlib.sha256(("consumed-refill-20261014:" + aid).encode()).hexdigest()[:12]}
         paired_complete = not (result["Before"]["PoolIncomplete"] or result["After"]["PoolIncomplete"])
         uncensored_agents += int(paired_complete)
+        baseline_items, baseline_friends = delivered_identities(result["Before"])
         for arm in totals:
             data = result[arm.capitalize()]
             if [step["Step"] for step in data["Steps"]] != list(range(1, 25)):
                 raise ValueError("incomplete sequence")
             mix, counts = collections.Counter(), collections.Counter()
+            delivered_items, delivered_friends = delivered_identities(data)
+            counts["friend_source"] = len(delivered_friends)
+            counts["retained_baseline_items"] = len(baseline_items & delivered_items)
+            counts["retained_baseline_friends"] = len(baseline_friends & delivered_items)
             delivered_groups = set()
             for step in data["Steps"]:
                 candidates = step["Delivered"] or []
@@ -149,7 +166,7 @@ def main():
             counts["zero_delivery_agents"] = int(counts["delivered"] == 0)
             rejections[arm].update(data["Rejections"])
             first_rejections[arm].update(data["Steps"][0]["Rejections"])
-            for field in ("delivered", "pgc", "ugc", "need", "profile", "friend", "baseline", "under7", "7to30", "over30", "empty_requests", "partial_requests", "censored_agents", "expected_positive_events_source", "expected_positive_events_source_age"):
+            for field in ("delivered", "pgc", "ugc", "need", "profile", "friend", "friend_source", "retained_baseline_items", "retained_baseline_friends", "baseline", "under7", "7to30", "over30", "empty_requests", "partial_requests", "censored_agents", "expected_positive_events_source", "expected_positive_events_source_age"):
                 row[f"{arm}_{field}"] = round(counts[field], 5)
             totals[arm].update(counts)
             if paired_complete:
@@ -178,6 +195,9 @@ def main():
         "agents_more": sum(r["delivery_delta"] > 0 for r in rows),
         "agents_less": sum(r["delivery_delta"] < 0 for r in rows),
         "agents_equal": sum(r["delivery_delta"] == 0 for r in rows),
+        "agents_missing_baseline_items": sum(r["after_retained_baseline_items"] < r["before_delivered"] for r in rows),
+        "agents_missing_baseline_friends": sum(r["after_retained_baseline_friends"] < r["before_friend_source"] for r in rows),
+        "friend_count_semantics": "friend counts winning Friend contexts; friend_source counts the unioned friend provenance independent of winning Need/Profile context. Retention compares item identities, not attribution labels, within each Agent's 24-request scenario.",
         "positive_estimate_limit": "Historical event-rate sensitivity, not calibrated probability or causal daily uplift; unmatched/delayed feedback, exposure selection and frozen supply limit validity.",
         "historical_rates": {":".join(k): v for k, v in history[2].items()},
     }
