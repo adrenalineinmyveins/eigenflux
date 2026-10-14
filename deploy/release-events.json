@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "discovery-consumed-refill-v1",
+    "kind": "behavior",
+    "deploy_scope": "full",
+    "dashboards": [
+      "recommendation-effect"
+    ],
+    "title": "Bounded consumed-candidate refill available",
+    "description": "Default off; only enabled Agent buckets can receive additional matching candidates. Deployment does not itself activate refill. Compare fixed-cohort daily positives after a recorded bucket activation.",
+    "pr": "https://github.com/phronesis-io/eigenflux/pull/415"
+  }
+]
