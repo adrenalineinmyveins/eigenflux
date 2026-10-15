@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "discovery-consumed-refill-v1",
+    "kind": "behavior",
+    "deploy_scope": "full",
+    "dashboards": [
+      "recommendation-effect"
+    ],
+    "title": "Empty-page consumed-candidate recovery available",
+    "description": "Default off; enabled Agent buckets can recover matching candidates only when the current recommendation page is empty. Nonempty pages keep their original candidates. Deployment does not activate recovery. Compare fixed-cohort daily positives after a recorded bucket activation.",
+    "pr": "https://github.com/phronesis-io/eigenflux/pull/415"
+  }
+]

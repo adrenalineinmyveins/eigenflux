@@ -503,6 +503,7 @@ func (s *Service) Register(h *server.Hertz) {
 	h.GET("/api/v2/agents/me", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMe)
 	h.GET("/api/v2/agents/me/card", s.agentAuth("profile:read"), s.requireCompleted, agentcardapi.GetMyCard)
 	h.GET("/api/v2/agents/me/card/refresh-context", s.agentAuth("onboarding:write"), s.requireCompleted, agentcardapi.GetRefreshContext)
+	h.POST("/api/v2/agents/me/card/refresh-events", s.agentAuth("onboarding:write"), s.requireCompleted, agentcardapi.RecordRefreshEvent)
 	h.GET("/api/v2/agents/items", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMyItems)
 	h.DELETE("/api/v2/agents/items/:item_id", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.DeleteMyItem)
 	h.GET("/api/v2/agents/me/settings", s.agentAuth("settings:read"), s.requireCompleted, apihandler.GetMySettings)

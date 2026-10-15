@@ -92,6 +92,17 @@ func Query(c Context, k Kind, channel string, limit int) (map[string]any, error)
 		return nil, fmt.Errorf("invalid retrieval limit")
 	}
 	filters, not := []any{}, []any{}
+	if len(c.excludeConsumedGroups) > MaxRefillGroups || len(c.excludeRecalledIDs) > 80 {
+		return nil, fmt.Errorf("refill exclusion budget exceeded")
+	}
+	if k == Broadcast && channel == "lexical" {
+		if len(c.excludeConsumedGroups) > 0 {
+			not = append(not, terms("group_id", c.excludeConsumedGroups))
+		}
+		if len(c.excludeRecalledIDs) > 0 {
+			not = append(not, terms("id", c.excludeRecalledIDs))
+		}
+	}
 	if k == Broadcast && channel == "lexical" {
 		at := time.Now()
 		if c.retrievalAt != 0 {

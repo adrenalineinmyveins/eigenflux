@@ -247,6 +247,7 @@ install_cli() {
   if command -v eigenflux >/dev/null 2>&1; then
     CURRENT_VERSION=$(eigenflux version --short 2>/dev/null || echo "")
     if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+      INSTALLED_CLI_PATH=$(command -v eigenflux)
       ok "eigenflux ${CURRENT_VERSION} is already up to date."
       return
     fi
@@ -264,7 +265,10 @@ install_cli() {
   # Honor EIGENFLUX_INSTALL_DIR override; default to ~/.local/bin.
   INSTALL_DIR="${EIGENFLUX_INSTALL_DIR:-$HOME/.local/bin}"
   mkdir -p "$INSTALL_DIR"
-  mv "$TMP_FILE" "$INSTALL_DIR/eigenflux"
+  INSTALL_HOME=$(resolve_eigenflux_home "$HOMEDIR_FLAG" "$EXPLICIT_EIGENFLUX_HOME" "$INVOKING_HOST")
+  "$TMP_FILE" --homedir "$INSTALL_HOME" installation replace --destination "$INSTALL_DIR/eigenflux" --host "$INVOKING_HOST" --skills-target ""
+  rm -f "$TMP_FILE"
+  INSTALLED_CLI_PATH="$INSTALL_DIR/eigenflux"
 
   ok "eigenflux ${LATEST_VERSION} installed successfully"
   "$INSTALL_DIR/eigenflux" version 2>/dev/null || true
@@ -345,7 +349,7 @@ install_skills() {
   info ""
   info "Installing EigenFlux skills..."
 
-  EF_BIN="${EIGENFLUX_INSTALL_DIR:-$HOME/.local/bin}/eigenflux"
+  EF_BIN="${INSTALLED_CLI_PATH:-${EIGENFLUX_INSTALL_DIR:-$HOME/.local/bin}/eigenflux}"
   [ -x "$EF_BIN" ] || EF_BIN="$(command -v eigenflux 2>/dev/null || true)"
 
   # R2 is the authoritative skills source for a released CLI. Pass --host
@@ -365,7 +369,11 @@ install_skills() {
     *) [ -d "$HOME/.openclaw" ] && HOST_ARG="--host openclaw" ;;
   esac
 
+  INSTALL_SKILLS_TARGET=""
+  RESOLVED_SKILLS_TARGET=""
+  [ -n "$EF_BIN" ] && RESOLVED_SKILLS_TARGET="$("$EF_BIN" skills path $HOST_ARG 2>/dev/null || true)"
   if [ -n "$EF_BIN" ] && "$EF_BIN" skills sync $HOST_ARG >/dev/null 2>&1; then
+    INSTALL_SKILLS_TARGET="$RESOLVED_SKILLS_TARGET"
     ok "EigenFlux skills synced from R2"
     return
   fi
@@ -438,6 +446,7 @@ install_skills() {
 
 migrate_config() {
   INSTALL_DIR="${EIGENFLUX_INSTALL_DIR:-$HOME/.local/bin}"
+  if [ -n "${INSTALLED_CLI_PATH:-}" ]; then INSTALL_DIR=$(dirname "$INSTALLED_CLI_PATH"); fi
   OPENCLAW_STATEDIR="$HOME/.openclaw"
   EF_HOME=$(resolve_eigenflux_home "$HOMEDIR_FLAG" "$EXPLICIT_EIGENFLUX_HOME" "$INVOKING_HOST")
 
@@ -1197,11 +1206,14 @@ report_attribution() {
 info "EigenFlux installer ${INSTALLER_VERSION} (source ${INSTALLER_SOURCE_COMMIT})"
 install_cli
 report_attribution
-install_skills
 migrate_config
+install_skills
 persist_install_ref
 provision_agent_v2
 setup_agents
+if ! "$INSTALLED_CLI_PATH" --homedir "$EF_HOME" installation record --host "$INVOKING_HOST" --skills-target "${INSTALL_SKILLS_TARGET:-}" >/dev/null 2>&1; then
+  info "Installation registration unavailable; record it with the new CLI before uninstalling."
+fi
 
 # Name the hosts we found but left alone, so "it didn't set up my Codex" is an
 # informed outcome rather than a silent one.
