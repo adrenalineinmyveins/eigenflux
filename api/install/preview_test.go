@@ -1,8 +1,10 @@
 package install
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"testing"
 
@@ -81,12 +83,68 @@ func TestMintPreviewExitsBeforeAttribution(t *testing.T) {
 }
 
 func TestPreviewFetchDoesNotStampExistingToken(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
 	h := server.New()
 	h.GET("/r/:ref", serveRef)
 	resp := ut.PerformRequest(h.Engine, http.MethodGet, "/r/EF-1234abcd", nil,
 		ut.Header{Key: "User-Agent", Value: "LarkUrl"}).Result()
 	if resp.StatusCode() != http.StatusOK {
 		t.Fatalf("status=%d body=%s", resp.StatusCode(), resp.Body())
+	}
+	var event map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &event); err != nil {
+		t.Fatal(err)
+	}
+	if event["ev"] != "install_preview_blocked" || event["stage"] != "token_instruction" ||
+		event["ref"] != "EF-1234abcd" || event["reason"] != "crawler_user_agent" {
+		t.Fatalf("unexpected preview event: %#v", event)
+	}
+}
+
+func TestMintPreviewLogsChannelWithoutCreatingLanding(t *testing.T) {
+	for _, tc := range []struct{ body, code string }{
+		{`{"invite_code":"EFI-hhPnlK"}`, "EFI-hhPnlK"},
+		{`{"invite_code":"not-a-code","referrer":"private-query"}`, ""},
+		{`{`, ""},
+	} {
+		t.Run(tc.body, func(t *testing.T) {
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+			c := app.NewContext(0)
+			c.Request.Header.Set("Sec-Purpose", "prefetch;prerender")
+			c.Request.Header.Set("User-Agent", "Mozilla/5.0 Chrome/152.0")
+			c.Request.SetBodyString(tc.body)
+			mintRef(context.Background(), c)
+			if c.Response.StatusCode() != http.StatusForbidden {
+				t.Fatalf("preview reached landing creation: %d", c.Response.StatusCode())
+			}
+			var event map[string]any
+			if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &event); err != nil {
+				t.Fatal(err)
+			}
+			if event["ev"] != "install_preview_blocked" || event["stage"] != "landing_token" ||
+				event["invite_code"] != tc.code || event["reason"] != "sec-purpose:prefetch" {
+				t.Fatalf("unexpected preview event: %#v", event)
+			}
+			if bytes.Contains(logs.Bytes(), []byte("private-query")) {
+				t.Fatal("request body leaked into preview log")
+			}
+		})
+	}
+}
+
+func TestPreviewHeaderTokenBoundaries(t *testing.T) {
+	for _, value := range []string{"not-preview", "no-prefetch", "prerendered", "navigate"} {
+		c := app.NewContext(0)
+		c.Request.Header.Set("Sec-Purpose", value)
+		if isPreviewRequest(c) {
+			t.Fatalf("non-preview purpose was excluded: %s", value)
+		}
 	}
 }
 
