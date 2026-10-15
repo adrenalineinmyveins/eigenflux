@@ -228,12 +228,13 @@ type Config struct {
 	// falls back to the baseline formula ranker. The bundle is delivered to a
 	// local directory out-of-band (OSS sync + atomic `current` symlink); sort
 	// only hot-reloads the local file.
-	LRRankerEnabled           bool
-	LRRankerModelPath         string
-	LRRankerReloadInterval    string
-	DiscoveryLREnabled        bool
-	DiscoveryLRModelPath      string
-	DiscoveryLRReloadInterval string
+	LRRankerEnabled            bool
+	LRRankerModelPath          string
+	LRRankerReloadInterval     string
+	DiscoveryConsumedRefillBPS int
+	DiscoveryLREnabled         bool
+	DiscoveryLRModelPath       string
+	DiscoveryLRReloadInterval  string
 
 	// Per-type freshness decay
 	FreshnessAlertOffset  string
@@ -433,6 +434,7 @@ func Load() *Config {
 		LRRankerEnabled:              getEnvBool("LR_RANKER_ENABLED", false),
 		LRRankerModelPath:            getEnv("LR_RANKER_MODEL_PATH", "/data/models/eigenflux/lr-ranker/current/model.json"),
 		LRRankerReloadInterval:       getEnv("LR_RANKER_RELOAD_INTERVAL", "60s"),
+		DiscoveryConsumedRefillBPS:   getEnvInt("DISCOVERY_CONSUMED_REFILL_BPS", 0),
 		DiscoveryLREnabled:           getEnvBool("DISCOVERY_LR_ENABLED", false),
 		DiscoveryLRModelPath:         getEnv("DISCOVERY_LR_MODEL_PATH", "/data/models/eigenflux/discovery-lr/current/model.json"),
 		DiscoveryLRReloadInterval:    getEnv("DISCOVERY_LR_RELOAD_INTERVAL", "60s"),

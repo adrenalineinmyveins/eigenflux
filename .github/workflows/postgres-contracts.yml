@@ -21,6 +21,7 @@ on:
       - 'pipeline/consumer/**'
       - 'rpc/item/**'
       - 'rpc/sort/discovery/**'
+      - 'scripts/discovery_fidelity_replay/**'
       - 'rpc/pm/dal/**'
       - 'tests/pmtimestampbackfill/**'
       - 'pkg/consolev2retention/**'
@@ -53,6 +54,7 @@ on:
       - 'pipeline/consumer/**'
       - 'rpc/item/**'
       - 'rpc/sort/discovery/**'
+      - 'scripts/discovery_fidelity_replay/**'
       - 'rpc/pm/dal/**'
       - 'tests/pmtimestampbackfill/**'
       - 'pkg/consolev2retention/**'
@@ -103,6 +105,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Bounded recommendation refill contracts
+        run: |
+          go test -race ./rpc/sort/discovery ./rpc/feed/delivery ./pkg/config ./scripts/discovery_fidelity_replay
+          python3 -m unittest discover -s scripts/discovery_fidelity_replay -p 'test*report.py'
       - name: Apply every migration and rollout helper
         run: bash scripts/common/migrate_up.sh
       - name: Verify broadcast keyword expiry query

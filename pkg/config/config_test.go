@@ -523,3 +523,14 @@ func TestDiscoveryEmbeddingRevisionConfiguration(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestConsumedRefillDefaultsOffAndLoadsBucket(t *testing.T) {
+	t.Setenv("DISCOVERY_CONSUMED_REFILL_BPS", "")
+	if Load().DiscoveryConsumedRefillBPS != 0 {
+		t.Fatal("refill must default off")
+	}
+	t.Setenv("DISCOVERY_CONSUMED_REFILL_BPS", "500")
+	if Load().DiscoveryConsumedRefillBPS != 500 {
+		t.Fatal("refill bucket not loaded")
+	}
+}
