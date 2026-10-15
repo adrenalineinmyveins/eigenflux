@@ -169,6 +169,15 @@ through real API/Feed/Sort processes. Unit tests under
 
 ## CLI release integrity and Windows download tests
 
+Run `python3 -m unittest discover -s tests/cli_release -p 'test_install_attribution.py'`
+for bounded installer reporting retries, HTTP/business failures, and invalid
+responses. The production shell functions run with an isolated curl fixture.
+`go test ./cmd ./internal/auth ./internal/client` in the CLI module covers V2
+report failure and reprovision retry using the selected server and saved ref.
+The real-CLI `TestCLIInstallRefToV2Identity` in `tests/installv2` also verifies
+that provision repairs a pending install and repeated reports preserve the
+first conversion timestamp.
+
 Run `python3 -m unittest discover -s tests/cli_release -p 'test_cli_artifacts.py'`
 for checksum generation, publisher preflight, failed uploads, public CDN
 verification and version-promotion ordering. Tests use temporary directories,

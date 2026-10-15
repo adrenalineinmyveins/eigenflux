@@ -138,6 +138,10 @@ jobs:
         run: go test -count=1 ./pkg/testaccountreset && go vet ./scripts/test_account_reset
       - name: Verify runtime observation and request identity
         run: go test -count=1 ./api/dal ./api/middleware ./pkg/reqinfo ./pkg/runtimeidentity
+      - name: Verify CLI installation reporting through V2 provision
+        run: |
+          (cd cli && go build -o ../build/eigenflux-cli .)
+          EIGENFLUX_TEST_CLI="$GITHUB_WORKSPACE/build/eigenflux-cli" go test -count=1 ./tests/installv2
       - name: Verify short-ID install attribution
         run: go test -count=1 ./api/install -run '^TestPostgresShortIDInviteAttribution$'
       - name: Verify Console V2 PostgreSQL flow and races

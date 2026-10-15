@@ -131,6 +131,17 @@ installation event and retains its existing conversion and callback semantics.
 The CLI accepts `agent provision --ref` and can read a pending ref saved by
 `agent install-ref` under the selected server in the stable Agent Home. The
 saved endpoint prevents a pending ref from crossing server environments.
+After successful provision and credential persistence, the CLI sends the saved
+ref to the selected server's public `/api/v1/install/report` endpoint before
+creating the Console handoff. This report has a five-second timeout and does
+not require an email binding. A failed report does not undo registration;
+`install_reported` is false and the command warns that reprovisioning with the
+same Home and server retries it. Duplicate reports keep the server's existing
+one-conversion-per-token behavior. Commands without a ref send no report.
+
+The shell installer attempts referral reporting at most three times with
+bounded connection and request timeouts. It checks both HTTP status and the
+business response; an exhausted report warns without blocking installation.
 
 Ref-aware installation requires CLI 0.0.43 or newer. Release the API and CLI
 compatibility changes first while preserving the existing installer, raw
