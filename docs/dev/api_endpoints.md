@@ -787,3 +787,22 @@ preview identities. `/r/:ref` serves preview requests without minting invite
 tokens or stamping an existing token as fetched. UA/header filtering cannot
 distinguish crawlers that impersonate ordinary browsers. Historical landing
 rows are retained.
+
+Every excluded request emits `install_preview_blocked` with a stage
+(`landing_token`, `invite_instruction`, or `token_instruction`), bounded UA,
+classification reason, and the available referral/invite identifier. Fixed-code
+instruction previews also retain `install_invite_bot` for compatibility; those
+two event names must not be added together. A token-instruction preview does not
+read or update its token. A preview rejected at token creation records only a
+syntactically valid invite code from its body, without resolving it or creating
+rows. Successful webpage token creation records `preview_checked: true` and the
+bounded UA on `install_ref_new` for auditing; it is not proof of a human visitor.
+No request bodies, full referrer queries, or additional client IPs are logged.
+
+The channel dashboard counts browser-entry records separately from direct
+instruction-entry records. Browser automatic-request counts use the Caddy
+`/api/v1/install/token` access log and the same UA/purpose classification,
+including retained requests predating this instrumentation. Count that stage
+once per request, not once for HTML, assets, and each API request. These request
+counts cannot be subtracted from token counts: rejected previews mint no token,
+while historical tokens have no stored UA evidence for exact reclassification.
